@@ -1,0 +1,33 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PaperCard from '../../components/PaperCard.astro';
+
+export async function getStaticPaths() {
+  const papers = await getCollection('papers');
+  const cats = new Map<string, typeof papers>();
+  for (const p of papers) {
+    const c = p.data.category;
+    if (!cats.has(c)) cats.set(c, [] as any);
+    (cats.get(c) as any).push(p);
+  }
+  return Array.from(cats.entries()).map(([cat, items]) => ({
+    params: { cat },
+    props: {
+      cat,
+      papers: items.sort(
+        (a: any, b: any) => b.data.published.valueOf() - a.data.published.valueOf()
+      ),
+    },
+  }));
+}
+
+const { cat, papers } = Astro.props;
+---
+<BaseLayout title={`${cat} - AI Papers Daily`}>
+  <h2 style="margin: 4px 0 8px;">{cat}</h2>
+  <p style="color: var(--fg-muted); font-size: 14px;">{papers.length} 篇</p>
+  <ul class="paper-list">
+    {papers.map((p: any) => <PaperCard paper={p} />)}
+  </ul>
+</BaseLayout>

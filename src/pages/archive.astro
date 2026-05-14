@@ -1,0 +1,35 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const papers = (await getCollection('papers')).sort(
+  (a, b) => b.data.published.valueOf() - a.data.published.valueOf()
+);
+const buckets = new Map<string, typeof papers>();
+for (const p of papers) {
+  const ym = p.data.published.toISOString().slice(0, 7);
+  if (!buckets.has(ym)) buckets.set(ym, [] as any);
+  (buckets.get(ym) as any).push(p);
+}
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<BaseLayout title="归档 - AI Papers Daily">
+  <h2 style="margin: 4px 0 16px;">归档</h2>
+  {Array.from(buckets.entries()).map(([ym, items]) => (
+    <section style="margin-bottom: 28px;">
+      <h3 style="font-size:15px;color:var(--fg-muted);margin:14px 0 8px;">{ym} · {items.length} 篇</h3>
+      <ul class="paper-list" style="border-top:1px solid var(--border-soft);">
+        {items.map((p: any) => (
+          <li class="paper-card" style="padding:10px 0;">
+            <div style="display:flex;gap:10px;align-items:baseline;">
+              <span style="color:var(--fg-faint);font-size:13px;font-variant-numeric:tabular-nums;">
+                {p.data.published.toISOString().slice(5, 10)}
+              </span>
+              <a href={`${base}/paper/${p.slug}`} style="font-size:15px;color:var(--fg);">{p.data.title}</a>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</BaseLayout>

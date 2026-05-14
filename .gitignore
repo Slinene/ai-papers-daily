@@ -1,0 +1,27 @@
+# build output
+dist/
+.astro/
+
+# deps
+node_modules/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# scratch / cache
+.cache/
+.tmp/
+tmp/
+*.log
+
+# secrets
+.env
+.env.local
+
+# editors / OS
+.DS_Store
+.vscode/
+.idea/

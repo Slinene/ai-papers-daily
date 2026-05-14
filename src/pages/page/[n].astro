@@ -1,0 +1,43 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PaperCard from '../../components/PaperCard.astro';
+
+export async function getStaticPaths() {
+  const PER_PAGE = 15;
+  const all = await getCollection('papers');
+  const papers = all.sort(
+    (a, b) => b.data.published.valueOf() - a.data.published.valueOf()
+  );
+  const totalPages = Math.max(1, Math.ceil(papers.length / PER_PAGE));
+  // page 1 lives at /, so generate 2..N here
+  return Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => {
+    const n = i + 2;
+    return {
+      params: { n: String(n) },
+      props: {
+        papers: papers.slice((n - 1) * PER_PAGE, n * PER_PAGE),
+        page: n,
+        totalPages,
+      },
+    };
+  });
+}
+
+const { papers, page, totalPages } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<BaseLayout title={`第 ${page} 页 - AI Papers Daily`}>
+  <ul class="paper-list">
+    {papers.map((p: any) => <PaperCard paper={p} />)}
+  </ul>
+  <div class="pagination">
+    {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+      n === page
+        ? <span class="current">{n}</span>
+        : n === 1
+          ? <a href={`${base}/`}>{n}</a>
+          : <a href={`${base}/page/${n}`}>{n}</a>
+    ))}
+  </div>
+</BaseLayout>

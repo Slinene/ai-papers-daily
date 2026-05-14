@@ -1,0 +1,45 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const papers = await getCollection('papers');
+  return papers.map(p => ({ params: { slug: p.slug }, props: { paper: p } }));
+}
+
+const { paper } = Astro.props;
+const { Content } = await paper.render();
+const data = paper.data;
+const published = data.published.toISOString().slice(0, 10);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<BaseLayout title={data.title} description={data.one_liner}>
+  <article class="detail">
+    <div class="meta">
+      <a href={`${base}/category/${data.category}`}>{data.category}</a>
+      <span class="sep">|</span>
+      <time datetime={published}>{published}</time>
+      <span class="sep">|</span>
+      arXiv:<a href={data.url} target="_blank" rel="noopener">{data.arxiv_id}</a>
+      {data.score >= 8 && <><span class="sep">|</span><span>★ deep</span></>}
+    </div>
+    <h1>{data.title}</h1>
+    {data.authors.length > 0 && (
+      <div class="meta">{data.authors.slice(0, 6).join(', ')}{data.authors.length > 6 ? ' 等' : ''}</div>
+    )}
+    <p class="one-liner">{data.one_liner}</p>
+    <div class="tags" style="margin: 6px 0 18px;">
+      {data.tags.map(t => (
+        <a class="tag" href={`${base}/tag/${t}`}>{t}</a>
+      ))}
+    </div>
+    <div class="content">
+      <Content />
+    </div>
+    <div class="ext-links">
+      <a href={data.url} target="_blank" rel="noopener">arXiv 摘要页</a>
+      {data.pdf_url && <a href={data.pdf_url} target="_blank" rel="noopener">PDF</a>}
+      <a href={`${base}/`}>← 返回首页</a>
+    </div>
+  </article>
+</BaseLayout>

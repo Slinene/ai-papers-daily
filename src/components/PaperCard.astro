@@ -1,0 +1,26 @@
+---
+import type { CollectionEntry } from 'astro:content';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+interface Props { paper: CollectionEntry<'papers'> }
+const { paper } = Astro.props;
+const { data, slug } = paper;
+const published = data.published.toISOString().slice(0, 10);
+---
+<article class="paper-card">
+  <h2>
+    <a href={`${base}/paper/${slug}`}>{data.title}</a>
+  </h2>
+  <div class="meta">
+    <a href={`${base}/category/${data.category}`}>{data.category}</a>
+    <span class="sep">|</span>
+    <time datetime={published}>{published}</time>
+    {data.score >= 8 && <><span class="sep">|</span><span title="深度解读（读了 PDF 全文）">★ deep</span></>}
+  </div>
+  <p class="summary">{data.one_liner}</p>
+  <div class="tags">
+    {data.tags.map(t => (
+      <a class="tag" href={`${base}/tag/${t}`}>{t}</a>
+    ))}
+  </div>
+</article>

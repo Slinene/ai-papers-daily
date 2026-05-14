@@ -1,0 +1,39 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PaperCard from '../components/PaperCard.astro';
+
+export const prerender = true;
+
+const PER_PAGE = 15;
+const all = await getCollection('papers');
+const papers = all.sort(
+  (a, b) => b.data.published.valueOf() - a.data.published.valueOf()
+);
+const total = papers.length;
+const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+const firstPage = papers.slice(0, PER_PAGE);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<BaseLayout title="AI Papers Daily">
+  {total === 0 ? (
+    <div class="pinned">
+      还没有论文。等明天 agent 第一次跑完就会有了。或者本地执行：
+      <code>python scripts/run_all.py</code>
+    </div>
+  ) : (
+    <>
+      <ul class="paper-list">
+        {firstPage.map(p => <PaperCard paper={p} />)}
+      </ul>
+      {totalPages > 1 && (
+        <div class="pagination">
+          <span class="current">1</span>
+          {Array.from({ length: totalPages - 1 }, (_, i) => i + 2).map(n => (
+            <a href={`${base}/page/${n}`}>{n}</a>
+          ))}
+        </div>
+      )}
+    </>
+  )}
+</BaseLayout>

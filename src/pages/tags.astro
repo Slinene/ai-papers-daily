@@ -1,0 +1,18 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const papers = await getCollection('papers');
+const counts = new Map<string, number>();
+for (const p of papers) for (const t of p.data.tags) counts.set(t, (counts.get(t) || 0) + 1);
+const tags = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<BaseLayout title="所有标签 - AI Papers Daily">
+  <h2 style="margin: 4px 0 16px;">所有标签</h2>
+  <div class="tags" style="line-height: 2;">
+    {tags.map(([t, n]) => (
+      <a class="tag" href={`${base}/tag/${t}`}>{t} <span style="opacity:.6;">×{n}</span></a>
+    ))}
+  </div>
+</BaseLayout>

@@ -1,0 +1,21 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const papers = await getCollection('papers');
+const counts = new Map<string, number>();
+for (const p of papers) counts.set(p.data.category, (counts.get(p.data.category) || 0) + 1);
+const cats = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<BaseLayout title="所有分类 - AI Papers Daily">
+  <h2 style="margin: 4px 0 16px;">所有分类</h2>
+  <ul class="paper-list">
+    {cats.map(([c, n]) => (
+      <li class="paper-card">
+        <h2><a href={`${base}/category/${c}`}>{c}</a></h2>
+        <div class="meta">{n} 篇</div>
+      </li>
+    ))}
+  </ul>
+</BaseLayout>
