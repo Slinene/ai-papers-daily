@@ -1,7 +1,6 @@
 import { defineConfig } from 'astro/config';
-import sitemap from '@astrojs/sitemap';
 
-const SITE = process.env.SITE_URL || 'https://example.github.io';
+const SITE = process.env.SITE_URL || 'https://slinene.github.io';
 const BASE = process.env.BASE_PATH || '/ai-papers-daily';
 
 export default defineConfig({
@@ -9,7 +8,10 @@ export default defineConfig({
   base: BASE,
   trailingSlash: 'ignore',
   output: 'static',
-  integrations: [sitemap()],
+  // sitemap removed: @astrojs/sitemap@3.2.1 crashes on build with
+  // "Cannot read properties of undefined (reading 'reduce')". We have RSS
+  // for feed discovery; sitemap isn't critical for this site.
+  integrations: [],
   markdown: {
     shikiConfig: {
       theme: 'github-light',
