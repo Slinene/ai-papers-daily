@@ -1,0 +1,31 @@
+name: Feishu chat discovery
+
+# One-off helper. Manually trigger this once to print every Feishu group the
+# bot/app is a member of, with the real oc_ chat_id. Copy the chat_id of your
+# target group into the FEISHU_CHAT_ID repo secret.
+#
+# Prereq: the app must already be added to the target group:
+#   群设置 -> 群机器人 -> 添加机器人 -> 选你的应用
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  list-chats:
+    runs-on: ubuntu-latest
+    env:
+      FEISHU_APP_ID:     ${{ secrets.FEISHU_APP_ID }}
+      FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install deps
+        run: pip install httpx python-dotenv python-slugify
+      - name: List Feishu chats the bot is in
+        run: python scripts/feishu_list_chats.py
