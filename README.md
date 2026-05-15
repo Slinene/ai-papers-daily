@@ -81,8 +81,13 @@ Repo → **Settings → Secrets and variables → Actions**:
 | Name | Value |
 |---|---|
 | `DEEPSEEK_API_KEY` | `sk-...` from <https://platform.deepseek.com/> → API Keys |
-| `FEISHU_WEBHOOK` | 群设置 → 群机器人 → 添加自定义机器人，复制 webhook URL |
-| `FEISHU_SECRET` | Optional. Only if you enabled「签名校验」when adding the bot |
+| `FEISHU_WEBHOOK` | (Mode A) 群设置 → 群机器人 → 添加自定义机器人，复制 webhook URL |
+| `FEISHU_SECRET` | (Mode A) Optional. Only if you enabled「签名校验」when adding the bot |
+| `FEISHU_APP_ID` | (Mode B) 自建应用 ID (`cli_...`)，需要 `im:message:send_as_bot` 权限 |
+| `FEISHU_APP_SECRET` | (Mode B) 自建应用 secret |
+| `FEISHU_CHAT_ID` | (Mode B) 目标群 chat_id |
+
+两种推送方式选一种填全即可，同时填则**优先用 IM API**。
 
 **Variables** (plain, can be edited inline):
 

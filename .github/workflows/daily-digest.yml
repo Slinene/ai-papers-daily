@@ -40,6 +40,10 @@ jobs:
           DEEPSEEK_MODEL:    ${{ vars.DEEPSEEK_MODEL }}
           FEISHU_WEBHOOK:    ${{ secrets.FEISHU_WEBHOOK }}
           FEISHU_SECRET:     ${{ secrets.FEISHU_SECRET }}
+          FEISHU_APP_ID:     ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_CHAT_ID:    ${{ secrets.FEISHU_CHAT_ID }}
+          FEISHU_RECEIVE_ID_TYPE: ${{ vars.FEISHU_RECEIVE_ID_TYPE }}
           SITE_URL:          ${{ vars.SITE_URL }}
           BASE_PATH:         ${{ vars.BASE_PATH }}
           MAX_PAPERS_PER_DAY: ${{ vars.MAX_PAPERS_PER_DAY }}
