@@ -118,6 +118,15 @@ class Summary(BaseModel):
 T = TypeVar("T", bound=BaseModel)
 
 
+def _strip_surrogates(s: str) -> str:
+    """pypdf can emit lone UTF-16 surrogates (math glyphs like 𝐀 in U+1D400),
+    which make json/utf-8 encoding of the API request body raise
+    UnicodeEncodeError. Replace any unencodable code points."""
+    if not s:
+        return s
+    return s.encode("utf-8", "replace").decode("utf-8")
+
+
 def _short_authors(p: dict) -> str:
     a = p.get("authors") or []
     head = ", ".join(a[:5])
@@ -137,9 +146,11 @@ def _call_json(
     against the given Pydantic schema. Retries once on parse/validation error
     with an explicit "must be JSON only" reminder."""
     model = model or DEEPSEEK_SUMMARY_MODEL
+    # Single chokepoint for every LLM call (score / abstract / deep) — strip
+    # surrogates so the OpenAI SDK can UTF-8 encode the request body.
     messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
+        {"role": "system", "content": _strip_surrogates(system)},
+        {"role": "user", "content": _strip_surrogates(user)},
     ]
     for attempt in range(2):
         try:
@@ -223,7 +234,7 @@ def _extract_pdf_text(pdf_bytes: bytes, max_chars: int) -> str:
         if used >= max_chars:
             break
     text = "\n\n".join(parts)
-    return text[:max_chars]
+    return _strip_surrogates(text[:max_chars])
 
 
 def summarize_with_pdf(paper: dict) -> Summary | None:
@@ -280,17 +291,22 @@ def main():
     scored = scored[:MAX_PAPERS_PER_DAY]
     log.info("kept %d after relevance filter", len(scored))
 
-    # Step 2: summarize
+    # Step 2: summarize. One bad paper must never abort the whole batch.
     processed: list[dict] = []
     for p in scored:
         depth = "abstract"
         summary: Summary | None = None
-        if p["_score"] >= MIN_SCORE_DEEP:
-            summary = summarize_with_pdf(p)
-            if summary is not None:
-                depth = "full_pdf"
-        if summary is None:
-            summary = summarize_abstract(p)
+        try:
+            if p["_score"] >= MIN_SCORE_DEEP:
+                summary = summarize_with_pdf(p)
+                if summary is not None:
+                    depth = "full_pdf"
+            if summary is None:
+                summary = summarize_abstract(p)
+        except Exception as exc:
+            log.warning("summarize crashed for %s: %s — skipping",
+                        p.get("arxiv_id"), exc)
+            continue
         if summary is None:
             continue
 

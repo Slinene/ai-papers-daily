@@ -157,9 +157,11 @@ def cluster_and_summarize(items: list[dict]) -> ClusterOutput | None:
         + "\n\n请按要求聚成 3-6 个主题输出 JSON。"
     )
 
+    # defensive: drop lone surrogates so the SDK can UTF-8 encode the body
+    safe_user = user.encode("utf-8", "replace").decode("utf-8")
     messages = [
         {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": user},
+        {"role": "user", "content": safe_user},
     ]
     for attempt in range(2):
         try:
