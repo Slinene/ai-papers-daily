@@ -197,10 +197,20 @@ def send_via_im_api(card_body: dict) -> None:
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json; charset=utf-8",
         })
-        r.raise_for_status()
+    # Feishu returns a useful {code,msg} body even on HTTP 400 — read it before
+    # raising so the failure is diagnosable (wrong chat_id / bot not in chat /
+    # missing permission all surface here with distinct codes).
+    try:
         data = r.json()
-    if data.get("code") != 0:
-        raise RuntimeError(f"im/v1/messages error: {data}")
+    except Exception:
+        data = {"_raw": r.text[:500]}
+    if r.status_code >= 400 or data.get("code") not in (0, None):
+        raise RuntimeError(
+            f"im/v1/messages failed: HTTP {r.status_code} "
+            f"code={data.get('code')} msg={data.get('msg')!r} "
+            f"(receive_id={FEISHU_CHAT_ID!r} type={FEISHU_RECEIVE_ID_TYPE!r}) "
+            f"full={data}"
+        )
     msg_id = (data.get("data") or {}).get("message_id", "?")
     log.info("im-api push: message_id=%s", msg_id)
 

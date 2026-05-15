@@ -110,5 +110,9 @@ jobs:
         uses: actions/deploy-pages@v4
 
       # ---- notify last, so card links resolve against the fresh deploy ----
+      # Non-fatal: the site is already deployed by this point. A Feishu
+      # misconfig (wrong chat_id / bot not in group) must not red-flag the
+      # whole run. The error still shows in this step's log.
       - name: Push Feishu digest
+        continue-on-error: true
         run: python scripts/push_feishu.py
