@@ -27,22 +27,22 @@ import time
 import httpx
 import yaml
 
-from common import CACHE_DIR, PAPERS_DIR, log, now_iso_date, read_json
+from common import CACHE_DIR, PAPERS_DIR, env_str, log, now_iso_date, read_json
 
 # Mode A: webhook
-FEISHU_WEBHOOK = os.environ.get("FEISHU_WEBHOOK", "").strip()
-FEISHU_SECRET = os.environ.get("FEISHU_SECRET", "").strip()
+FEISHU_WEBHOOK = env_str("FEISHU_WEBHOOK")
+FEISHU_SECRET = env_str("FEISHU_SECRET")
 
 # Mode B: self-built app + IM API
-FEISHU_APP_ID = os.environ.get("FEISHU_APP_ID", "").strip()
-FEISHU_APP_SECRET = os.environ.get("FEISHU_APP_SECRET", "").strip()
-FEISHU_CHAT_ID = os.environ.get("FEISHU_CHAT_ID", "").strip()
-FEISHU_RECEIVE_ID_TYPE = os.environ.get("FEISHU_RECEIVE_ID_TYPE", "chat_id").strip()
+FEISHU_APP_ID = env_str("FEISHU_APP_ID")
+FEISHU_APP_SECRET = env_str("FEISHU_APP_SECRET")
+FEISHU_CHAT_ID = env_str("FEISHU_CHAT_ID")
+FEISHU_RECEIVE_ID_TYPE = env_str("FEISHU_RECEIVE_ID_TYPE", "chat_id")
 
-FEISHU_OPEN_HOST = os.environ.get("FEISHU_OPEN_HOST", "https://open.feishu.cn").rstrip("/")
+FEISHU_OPEN_HOST = env_str("FEISHU_OPEN_HOST", "https://open.feishu.cn").rstrip("/")
 
-SITE_URL = os.environ.get("SITE_URL", "https://example.github.io").rstrip("/")
-BASE_PATH = os.environ.get("BASE_PATH", "/ai-papers-daily").strip("/")
+SITE_URL = env_str("SITE_URL", "https://slinene.github.io").rstrip("/")
+BASE_PATH = env_str("BASE_PATH", "/ai-papers-daily").strip("/")
 SITE_BASE = f"{SITE_URL}/{BASE_PATH}" if BASE_PATH else SITE_URL
 
 PAPERS_PER_CARD = 8
@@ -250,7 +250,7 @@ def main():
     papers = load_today_papers()
     if not papers:
         log.info("no papers today")
-        if os.environ.get("PUSH_EMPTY_DAY", "0") == "1":
+        if env_str("PUSH_EMPTY_DAY", "0") == "1":
             dispatch(build_empty_day_body())
         return
 

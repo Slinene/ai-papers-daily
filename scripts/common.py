@@ -21,12 +21,34 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 load_dotenv(ROOT / ".env", override=False)
 
+
+# --- robust env readers -----------------------------------------------------
+# GitHub Actions injects unset `vars.X` / `secrets.X` as EMPTY STRINGS, not as
+# absent keys. So `os.environ.get("X", default)` returns "" (not the default),
+# and `int(os.environ.get("X", "30"))` becomes int("") -> ValueError. These
+# helpers treat empty/whitespace as "absent".
+
+def env_str(key: str, default: str = "") -> str:
+    v = os.environ.get(key)
+    return v.strip() if v and v.strip() else default
+
+
+def env_int(key: str, default: int) -> int:
+    v = os.environ.get(key)
+    if v is None or not v.strip():
+        return default
+    try:
+        return int(v.strip())
+    except ValueError:
+        return default
+
+
 log = logging.getLogger("agent")
 if not log.handlers:
     h = logging.StreamHandler()
     h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s | %(message)s"))
     log.addHandler(h)
-    log.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+    log.setLevel(env_str("LOG_LEVEL", "INFO"))
 
 
 @dataclass

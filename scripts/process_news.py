@@ -27,18 +27,18 @@ import re
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field, ValidationError
 
-from common import CACHE_DIR, log, now_iso_date, read_json, write_json
+from common import CACHE_DIR, env_int, env_str, log, now_iso_date, read_json, write_json
 
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+DEEPSEEK_API_KEY = env_str("DEEPSEEK_API_KEY")
 if not DEEPSEEK_API_KEY:
     raise SystemExit("DEEPSEEK_API_KEY env var is required")
 
-DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro")
+DEEPSEEK_BASE_URL = env_str("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+DEEPSEEK_MODEL = env_str("DEEPSEEK_MODEL", "deepseek-v4-pro")
 
-MAX_NEWS_ITEMS = int(os.environ.get("MAX_NEWS_ITEMS", "50"))
-MAX_NEWS_TOPICS = int(os.environ.get("MAX_NEWS_TOPICS", "10"))
-MIN_NEWS_TOPICS = int(os.environ.get("MIN_NEWS_TOPICS", "7"))
+MAX_NEWS_ITEMS = env_int("MAX_NEWS_ITEMS", 50)
+MAX_NEWS_TOPICS = env_int("MAX_NEWS_TOPICS", 10)
+MIN_NEWS_TOPICS = env_int("MIN_NEWS_TOPICS", 7)
 
 # Keep an item if its title or snippet matches any of these (case-insensitive).
 # Broad on purpose — the LLM will do the precise filtering downstream.
@@ -207,7 +207,7 @@ def main():
     # bulldozed out by HN/Reddit ranking.
     #   * Chinese-source quota: take up to CN_QUOTA items in feed order
     #   * Remaining slots: filled with top Western items by points
-    CN_QUOTA = int(os.environ.get("NEWS_CN_QUOTA", "15"))
+    CN_QUOTA = env_int("NEWS_CN_QUOTA", 15)
     chinese = [x for x in filtered if (x.get("source") or "").startswith("cn:")][:CN_QUOTA]
     western = [x for x in filtered if not (x.get("source") or "").startswith("cn:")]
     western.sort(key=lambda x: int(x.get("points") or 0), reverse=True)

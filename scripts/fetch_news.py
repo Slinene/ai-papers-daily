@@ -21,14 +21,14 @@ from datetime import datetime, timedelta, timezone
 import feedparser
 import httpx
 
-from common import CACHE_DIR, log, write_json
+from common import CACHE_DIR, env_int, env_str, log, write_json
 
 UA = "ai-papers-daily/0.1 (https://github.com/Slinene/ai-papers-daily)"
 TIMEOUT = 20.0
 
 HN_API = "https://hn.algolia.com/api/v1/search"
 HN_QUERIES = [
-    q.strip() for q in os.environ.get(
+    q.strip() for q in env_str(
         "NEWS_HN_QUERIES",
         # Western frontier
         "LLM,ChatGPT,OpenAI,Anthropic,Claude,Gemini,Llama,Mistral,"
@@ -38,17 +38,17 @@ HN_QUERIES = [
         "DeepSeek,Moonshot Kimi,Zhipu ChatGLM,01-ai Yi",
     ).split(",") if q.strip()
 ]
-HN_WINDOW_HOURS = int(os.environ.get("NEWS_HN_WINDOW_HOURS", "48"))
-HN_MIN_POINTS = int(os.environ.get("NEWS_HN_MIN_POINTS", "5"))
-HN_PER_QUERY = int(os.environ.get("NEWS_HN_PER_QUERY", "10"))
+HN_WINDOW_HOURS = env_int("NEWS_HN_WINDOW_HOURS", 48)
+HN_MIN_POINTS = env_int("NEWS_HN_MIN_POINTS", 5)
+HN_PER_QUERY = env_int("NEWS_HN_PER_QUERY", 10)
 
 REDDIT_FEEDS = [
-    f.strip() for f in os.environ.get(
+    f.strip() for f in env_str(
         "NEWS_REDDIT_SUBS",
         "LocalLLaMA,MachineLearning,singularity,OpenAI",
     ).split(",") if f.strip()
 ]
-REDDIT_PER_SUB = int(os.environ.get("NEWS_REDDIT_PER_SUB", "25"))
+REDDIT_PER_SUB = env_int("NEWS_REDDIT_PER_SUB", 25)
 
 # Chinese AI media RSS — covers domestic big-tech news (字节/阿里/腾讯/DeepSeek/Moonshot...).
 # - qbitai (量子位): AI-only, high precision
@@ -59,8 +59,8 @@ CHINESE_FEEDS: list[tuple[str, str, bool]] = [
     ("infoq-ai", "https://www.infoq.cn/feed/ai",  True),
     ("36kr",     "https://36kr.com/feed",         False),  # general tech, needs filter
 ]
-CN_PER_FEED = int(os.environ.get("NEWS_CN_PER_FEED", "20"))
-CN_WINDOW_HOURS = int(os.environ.get("NEWS_CN_WINDOW_HOURS", "48"))
+CN_PER_FEED = env_int("NEWS_CN_PER_FEED", 20)
+CN_WINDOW_HOURS = env_int("NEWS_CN_WINDOW_HOURS", 48)
 
 
 @dataclass

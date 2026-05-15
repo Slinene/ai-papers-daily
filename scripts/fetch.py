@@ -19,6 +19,8 @@ import httpx
 from common import (
     CACHE_DIR,
     RawPaper,
+    env_int,
+    env_str,
     existing_arxiv_ids,
     log,
     normalize_arxiv_id,
@@ -36,16 +38,16 @@ from common import (
 #   stat.ML statistics ML
 ARXIV_CATEGORIES = [
     c.strip()
-    for c in os.environ.get(
+    for c in env_str(
         "ARXIV_CATEGORIES",
         "cs.IR,cs.LG,cs.CL,cs.AI,cs.CV,cs.MM,cs.HC,stat.ML",
     ).split(",")
     if c.strip()
 ]
 # 30/cat keeps total candidate count similar to the 4-cat × 80 baseline
-ARXIV_PER_CAT = int(os.environ.get("ARXIV_PER_CAT", "30"))
+ARXIV_PER_CAT = env_int("ARXIV_PER_CAT", 30)
 HF_DAILY_URL = "https://huggingface.co/api/daily_papers"
-HF_LIMIT = int(os.environ.get("HF_LIMIT", "50"))
+HF_LIMIT = env_int("HF_LIMIT", 50)
 TIMEOUT = 30.0
 
 

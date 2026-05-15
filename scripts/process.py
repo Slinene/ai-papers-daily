@@ -27,25 +27,25 @@ from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field, ValidationError
 from pypdf import PdfReader
 
-from common import CACHE_DIR, log, read_json, write_json
+from common import CACHE_DIR, env_int, env_str, log, read_json, write_json
 
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+DEEPSEEK_API_KEY = env_str("DEEPSEEK_API_KEY")
 if not DEEPSEEK_API_KEY:
     raise SystemExit("DEEPSEEK_API_KEY env var is required")
 
-DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+DEEPSEEK_BASE_URL = env_str("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 # Two-tier model strategy:
 #   SCORE_MODEL — wide funnel, every candidate scored; use light/fast model
 #   SUMMARY_MODEL — narrow output (~MAX_PAPERS_PER_DAY calls); use pro
 # Both fall back to DEEPSEEK_MODEL for back-compat.
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro")
-DEEPSEEK_SCORE_MODEL = os.environ.get("DEEPSEEK_SCORE_MODEL", "deepseek-v4-flash")
-DEEPSEEK_SUMMARY_MODEL = os.environ.get("DEEPSEEK_SUMMARY_MODEL", DEEPSEEK_MODEL)
+DEEPSEEK_MODEL = env_str("DEEPSEEK_MODEL", "deepseek-v4-pro")
+DEEPSEEK_SCORE_MODEL = env_str("DEEPSEEK_SCORE_MODEL", "deepseek-v4-flash")
+DEEPSEEK_SUMMARY_MODEL = env_str("DEEPSEEK_SUMMARY_MODEL", DEEPSEEK_MODEL)
 
-MIN_SCORE_KEEP = int(os.environ.get("MIN_SCORE_KEEP", "7"))
-MIN_SCORE_DEEP = int(os.environ.get("MIN_SCORE_DEEP", "8"))
-MAX_PAPERS_PER_DAY = int(os.environ.get("MAX_PAPERS_PER_DAY", "30"))
-PDF_TEXT_MAX_CHARS = int(os.environ.get("PDF_TEXT_MAX_CHARS", "60000"))
+MIN_SCORE_KEEP = env_int("MIN_SCORE_KEEP", 7)
+MIN_SCORE_DEEP = env_int("MIN_SCORE_DEEP", 8)
+MAX_PAPERS_PER_DAY = env_int("MAX_PAPERS_PER_DAY", 30)
+PDF_TEXT_MAX_CHARS = env_int("PDF_TEXT_MAX_CHARS", 60000)
 
 client = OpenAI(
     api_key=DEEPSEEK_API_KEY,
