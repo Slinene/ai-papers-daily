@@ -1,63 +1,86 @@
-"""Stage 2: filter relevance + summarize.
+"""Stage 2: filter relevance + summarize using DeepSeek (OpenAI-compatible).
 
 Reads .cache/raw_papers.json -> writes .cache/processed_papers.json.
 
-Pipeline per paper:
-  1. Haiku 4.5 scores relevance (0-10) using a fixed system prompt.
-  2. If score >= MIN_SCORE_KEEP, summarize from abstract (Haiku 4.5).
-  3. If score >= MIN_SCORE_DEEP, additionally fetch PDF and let Sonnet 4.6
-     produce a deeper read; if PDF fetch/parse fails, fall back to the abstract.
+Pipeline per paper (single model, varying input/output size):
+  1. Relevance score (0-10) from title+abstract — cheap, short.
+  2. If score >= MIN_SCORE_KEEP, write a card from the abstract.
+  3. If score >= MIN_SCORE_DEEP, download the PDF, extract text with pypdf,
+     and write a deeper card with the extracted full text in context.
 
-Cost model: Haiku for the wide funnel, Sonnet only on the top-scoring shortlist.
+DeepSeek API is OpenAI-compatible; we use the openai SDK with base_url
+overridden. PDFs are not natively supported — text is extracted locally.
+Structured output uses response_format={"type":"json_object"} plus
+Pydantic validation (since strict json_schema isn't guaranteed on
+non-OpenAI endpoints).
 """
 from __future__ import annotations
 
-import base64
+import io
+import json
 import os
 import time
-from pathlib import Path
+from typing import Type, TypeVar
 
-import anthropic
 import httpx
-from pydantic import BaseModel, Field
+from openai import OpenAI, OpenAIError
+from pydantic import BaseModel, Field, ValidationError
+from pypdf import PdfReader
 
 from common import CACHE_DIR, log, read_json, write_json
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-if not ANTHROPIC_API_KEY:
-    raise SystemExit("ANTHROPIC_API_KEY env var is required")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+if not DEEPSEEK_API_KEY:
+    raise SystemExit("DEEPSEEK_API_KEY env var is required")
+
+DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+# Two-tier model strategy:
+#   SCORE_MODEL — wide funnel, every candidate scored; use light/fast model
+#   SUMMARY_MODEL — narrow output (~MAX_PAPERS_PER_DAY calls); use pro
+# Both fall back to DEEPSEEK_MODEL for back-compat.
+DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-pro")
+DEEPSEEK_SCORE_MODEL = os.environ.get("DEEPSEEK_SCORE_MODEL", "deepseek-v4-flash")
+DEEPSEEK_SUMMARY_MODEL = os.environ.get("DEEPSEEK_SUMMARY_MODEL", DEEPSEEK_MODEL)
 
 MIN_SCORE_KEEP = int(os.environ.get("MIN_SCORE_KEEP", "7"))
 MIN_SCORE_DEEP = int(os.environ.get("MIN_SCORE_DEEP", "8"))
 MAX_PAPERS_PER_DAY = int(os.environ.get("MAX_PAPERS_PER_DAY", "30"))
+PDF_TEXT_MAX_CHARS = int(os.environ.get("PDF_TEXT_MAX_CHARS", "60000"))
 
-HAIKU = "claude-haiku-4-5"
-SONNET = "claude-sonnet-4-6"
+client = OpenAI(
+    api_key=DEEPSEEK_API_KEY,
+    base_url=DEEPSEEK_BASE_URL,
+    timeout=httpx.Timeout(120.0, connect=15.0),
+    max_retries=2,
+)
 
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+RELEVANCE_SYSTEM = """你是一位 AI 论文领域专家。根据论文标题和摘要给一个 0-10 的相关性分数。
 
-RELEVANCE_SYSTEM = """你是一位 AI 论文领域专家。你需要根据论文标题和摘要对它做相关性打分。
+读者最关心的子方向（10 分必读）：
+- 推荐系统 × LLM 交叉：
+  * Generative Recommendation（生成式推荐 / next-item generation）
+  * Semantic ID / Token-based RecSys / RQ-VAE for items
+  * Agentic Recommendation（推荐场景里的 LLM Agent / planning / tool-use）
+  * LLM4Rec / LLM-as-Ranker / LLM-as-Reranker / Cold-start with LLM
+  * User Simulation 用 LLM 模拟用户 / RL-from-LLM-feedback
+  * 多模态 / 多兴趣 / 序列推荐 中用 LLM
+- 大语言模型核心：训练 / 对齐 / 推理 / Long-context / MoE / Distill / 量化
 
-读者关心的方向（从高到低）：
-- 推荐系统 / 搜索 / 排序 / 召回 / 用户建模 + LLM 的交叉工作
-- 大语言模型核心：训练、对齐、推理、上下文、MoE、Distill
-- Agent / Tool-use / RAG / Memory / Planning
-- 评估、解释性、可靠性、效率
-- 多模态、Reasoning、Coding 等热门 AI 方向
+8-9 分核心方向：
+- Agent / Tool-use / Memory / Planning（通用 Agent，非推荐场景）
+- RAG / Retrieval / Reasoning（通用）
+- 评估、可靠性、效率（system-level）
+- 经典推荐系统 / 排序 / 召回（不含 LLM）但有显著创新
 
-打分标尺：
-  10  推荐系统 + LLM 双重命中，或行业里程碑式工作
-  8-9 上述方向的代表性 / 高质量工作
-  6-7 同方向但偏增量或工程性
-  3-5 沾边但非主流方向
-  0-2 与读者关心的方向无关
-"""
+6-7 分相关：
+- AI/ML 其他主流方向；视觉/语音如不结合 LLM 通常封顶 6
+- 偏工程或增量
 
+3-5 分：沾边但非主流方向
+0-2 分：与读者方向无关
 
-class Relevance(BaseModel):
-    score: int = Field(ge=0, le=10)
-    reasoning: str = Field(max_length=160)
-
+只输出 JSON，结构：
+{"score": <0-10 整数>, "reasoning": "<不超过 120 字的中文一句话理由>"}"""
 
 SUMMARY_SYSTEM = """你是一位 AI 论文解读专家，为读者撰写中文论文卡片。
 
@@ -67,12 +90,20 @@ SUMMARY_SYSTEM = """你是一位 AI 论文解读专家，为读者撰写中文�
 - 不重复原标题；不要"本文提出了 / 本研究表明"
 - summary_md 用 markdown，结构：动机 → 方法关键点 → 关键结果数字
 
-字段约束：
-- title_zh: 论文标题的中文翻译，简洁，<= 50 字
-- one_liner: 一句话核心贡献，<= 60 字，不带句号
-- category: 单选: LLM | RecSys | Agent | RAG | Eval | Training | Multimodal | Reasoning | Other
-- tags: 3-6 个英文标签（如 RecSys, LLM, MoE, RAG, Distill, RLHF, Eval）
-"""
+只输出 JSON，结构：
+{
+  "title_zh":     "<论文标题的中文翻译，简洁，<= 50 字>",
+  "one_liner":    "<一句话核心贡献，<= 60 字，不带句号>",
+  "category":     "<单选: LLM | RecSys | Agent | RAG | Eval | Training | Multimodal | Reasoning | Other>",
+  "tags":         ["<3-6 个英文标签，如 RecSys、LLM、MoE、RAG、Distill、RLHF、Eval>"],
+  "affiliations": ["<作者所属机构，最多 5 个，例如 MIT、Google DeepMind、Anthropic、清华大学；abstract 模式下若无法确认则留空数组 []>"],
+  "summary_md":   "<markdown 正文>"
+}"""
+
+
+class Relevance(BaseModel):
+    score: int = Field(ge=0, le=10)
+    reasoning: str = Field(max_length=200)
 
 
 class Summary(BaseModel):
@@ -80,7 +111,11 @@ class Summary(BaseModel):
     one_liner: str = Field(max_length=120)
     category: str
     tags: list[str] = Field(min_length=1, max_length=8)
+    affiliations: list[str] = Field(default_factory=list, max_length=8)
     summary_md: str
+
+
+T = TypeVar("T", bound=BaseModel)
 
 
 def _short_authors(p: dict) -> str:
@@ -89,20 +124,57 @@ def _short_authors(p: dict) -> str:
     return head + (" 等" if len(a) > 5 else "")
 
 
+def _call_json(
+    system: str,
+    user: str,
+    schema: Type[T],
+    *,
+    model: str = "",
+    max_tokens: int = 2000,
+    label: str = "",
+) -> T | None:
+    """One round-trip to DeepSeek that demands a JSON object and validates it
+    against the given Pydantic schema. Retries once on parse/validation error
+    with an explicit "must be JSON only" reminder."""
+    model = model or DEEPSEEK_SUMMARY_MODEL
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    for attempt in range(2):
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                response_format={"type": "json_object"},
+                temperature=0.2,
+                max_tokens=max_tokens,
+            )
+        except OpenAIError as exc:
+            log.warning("[%s] api error attempt=%d: %s", label, attempt, exc)
+            return None
+        text = (resp.choices[0].message.content or "").strip()
+        try:
+            return schema.model_validate_json(text)
+        except (ValidationError, json.JSONDecodeError) as exc:
+            log.warning("[%s] parse failed attempt=%d: %s | text=%.200s",
+                        label, attempt, exc, text)
+            messages.append({"role": "assistant", "content": text})
+            messages.append({"role": "user",
+                             "content": "上次返回不是有效 JSON 或字段不符合。请只返回一个 JSON 对象，不要加任何前后说明。"})
+    return None
+
+
 def score_relevance(paper: dict) -> Relevance | None:
     user = f"标题: {paper['title']}\n\n摘要:\n{paper['abstract'][:2500]}"
-    try:
-        resp = client.messages.parse(
-            model=HAIKU,
-            max_tokens=400,
-            system=RELEVANCE_SYSTEM,
-            messages=[{"role": "user", "content": user}],
-            output_format=Relevance,
-        )
-    except Exception as exc:
-        log.warning("relevance failed %s: %s", paper["arxiv_id"], exc)
-        return None
-    return resp.parsed_output
+    # Score path uses the cheaper/faster model (flash). Pro's deep reasoning
+    # chain made 19 candidates take ~45 min — overkill for a 0-10 score.
+    return _call_json(
+        RELEVANCE_SYSTEM, user, Relevance,
+        model=DEEPSEEK_SCORE_MODEL,
+        max_tokens=1500,
+        label=f"score:{paper['arxiv_id']}",
+    )
 
 
 def summarize_abstract(paper: dict) -> Summary | None:
@@ -112,18 +184,10 @@ def summarize_abstract(paper: dict) -> Summary | None:
         f"摘要:\n{paper['abstract']}\n\n"
         f"请基于以上信息写卡片。summary_md 200-450 字。"
     )
-    try:
-        resp = client.messages.parse(
-            model=HAIKU,
-            max_tokens=2000,
-            system=SUMMARY_SYSTEM,
-            messages=[{"role": "user", "content": user}],
-            output_format=Summary,
-        )
-    except Exception as exc:
-        log.warning("abstract summary failed %s: %s", paper["arxiv_id"], exc)
-        return None
-    return resp.parsed_output
+    return _call_json(
+        SUMMARY_SYSTEM, user, Summary,
+        max_tokens=4000, label=f"abs:{paper['arxiv_id']}",
+    )
 
 
 def _fetch_pdf(url: str) -> bytes | None:
@@ -137,6 +201,31 @@ def _fetch_pdf(url: str) -> bytes | None:
         return None
 
 
+def _extract_pdf_text(pdf_bytes: bytes, max_chars: int) -> str:
+    """Pull plain text out of an arXiv PDF page by page until max_chars hit.
+    Returns empty string if the PDF is unreadable or scanned-only."""
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+    except Exception as exc:
+        log.warning("pdf parse failed: %s", exc)
+        return ""
+    parts: list[str] = []
+    used = 0
+    for page in reader.pages:
+        try:
+            t = page.extract_text() or ""
+        except Exception:
+            continue
+        if not t:
+            continue
+        parts.append(t)
+        used += len(t)
+        if used >= max_chars:
+            break
+    text = "\n\n".join(parts)
+    return text[:max_chars]
+
+
 def summarize_with_pdf(paper: dict) -> Summary | None:
     pdf_url = paper.get("pdf_url")
     if not pdf_url:
@@ -144,40 +233,35 @@ def summarize_with_pdf(paper: dict) -> Summary | None:
     pdf_bytes = _fetch_pdf(pdf_url)
     if not pdf_bytes:
         return None
-    pdf_b64 = base64.standard_b64encode(pdf_bytes).decode("ascii")
-    content = [
-        {"type": "document",
-         "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_b64}},
-        {"type": "text", "text": (
-            f"以下是 arXiv 论文 {paper['arxiv_id']} 的 PDF 全文。\n"
-            f"标题: {paper['title']}\n"
-            f"作者: {_short_authors(paper)}\n\n"
-            "请阅读后输出中文卡片。summary_md 写 400-800 字，要求：\n"
-            "1) 一段动机：为什么这个问题值得做\n"
-            "2) 方法关键点：模型/算法/数据的具体设计，列要点\n"
-            "3) 关键实验：数据集、对比 baseline、最关键的几个数字\n"
-            "4) 你认为最值得记住的一句话"
-        )},
-    ]
-    try:
-        resp = client.messages.parse(
-            model=SONNET,
-            max_tokens=4000,
-            system=SUMMARY_SYSTEM,
-            messages=[{"role": "user", "content": content}],
-            output_format=Summary,
-        )
-    except Exception as exc:
-        log.warning("pdf summary failed %s: %s", paper["arxiv_id"], exc)
+    text = _extract_pdf_text(pdf_bytes, PDF_TEXT_MAX_CHARS)
+    if not text or len(text) < 500:
+        log.info("pdf text too short or empty for %s, skip deep read",
+                 paper["arxiv_id"])
         return None
-    return resp.parsed_output
+    user = (
+        f"以下是 arXiv 论文 {paper['arxiv_id']} 的正文文本（pypdf 抽取）。\n"
+        f"标题: {paper['title']}\n"
+        f"作者: {_short_authors(paper)}\n\n"
+        f"正文（截断到 {PDF_TEXT_MAX_CHARS} 字符）:\n"
+        f"-----\n{text}\n-----\n\n"
+        "请基于以上正文输出中文卡片。summary_md 写 400-800 字，要求：\n"
+        "1) 一段动机：为什么这个问题值得做\n"
+        "2) 方法关键点：模型/算法/数据的具体设计，列要点\n"
+        "3) 关键实验：数据集、对比 baseline、最关键的几个数字\n"
+        "4) 你认为最值得记住的一句话"
+    )
+    return _call_json(
+        SUMMARY_SYSTEM, user, Summary,
+        max_tokens=8000, label=f"deep:{paper['arxiv_id']}",
+    )
 
 
 def main():
     raws = read_json(CACHE_DIR / "raw_papers.json") or []
-    log.info("processing %d raw papers", len(raws))
+    log.info("processing %d raw papers via %s @ %s",
+             len(raws), DEEPSEEK_MODEL, DEEPSEEK_BASE_URL)
 
-    # Step 1: relevance scoring (all candidates)
+    # Step 1: relevance scoring
     scored: list[dict] = []
     for p in raws:
         rel = score_relevance(p)
@@ -212,9 +296,10 @@ def main():
 
         processed.append({
             "arxiv_id": p["arxiv_id"],
-            "title": p["title"],
+            "title": p["title"],                    # English original
             "title_zh": summary.title_zh,
             "authors": p.get("authors", []),
+            "affiliations": summary.affiliations or [],
             "url": p["url"],
             "pdf_url": p.get("pdf_url"),
             "published": (p.get("published") or "")[:10],
@@ -226,8 +311,7 @@ def main():
             "source": p.get("source", ""),
             "depth": depth,
         })
-        # be gentle on rate limits
-        time.sleep(0.4)
+        time.sleep(0.3)
 
     write_json(CACHE_DIR / "processed_papers.json", processed)
     log.info("processed %d papers (deep=%d)",

@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PaperCard from '../components/PaperCard.astro';
+import NewsTopic from '../components/NewsTopic.astro';
 
 export const prerender = true;
 
@@ -11,29 +12,139 @@ const papers = all.sort(
   (a, b) => b.data.published.valueOf() - a.data.published.valueOf()
 );
 const total = papers.length;
-const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
-const firstPage = papers.slice(0, PER_PAGE);
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+// Today's news digest — pick the most recent news collection entry
+const newsAll = await getCollection('news');
+const latestNews = newsAll
+  .slice()
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())[0];
+const newsDate = latestNews?.data.date.toISOString().slice(0, 10) || '';
+const newsTopics = latestNews?.data.topics || [];
+
+// "Today" = most recent `collected` date present in the paper corpus.
+const collectedDates = papers.map(p => p.data.collected.toISOString().slice(0, 10));
+const latestCollected = collectedDates.sort().reverse()[0] || '';
+
+// Banner heading takes the more recent of {latestCollected, newsDate} so we
+// don't show yesterday's paper date when today's news has already landed.
+const bannerDate = [latestCollected, newsDate]
+  .filter(Boolean)
+  .sort()
+  .reverse()[0] || '';
+
+const todayPapers = papers.filter(
+  p => p.data.collected.toISOString().slice(0, 10) === latestCollected
+);
+const earlierPapers = papers.filter(
+  p => p.data.collected.toISOString().slice(0, 10) !== latestCollected
+);
+
+// Today's papers sorted: score desc, then depth=full_pdf first
+const todaySorted = todayPapers
+  .slice()
+  .sort((a, b) => {
+    const s = b.data.score - a.data.score;
+    if (s !== 0) return s;
+    return (b.data.depth === 'full_pdf' ? 1 : 0) - (a.data.depth === 'full_pdf' ? 1 : 0);
+  });
+// Top 5 are the "今日精选" tier; #1 gets the hero card, #2-#5 are regular
+const TODAY_FEATURED_CAP = 5;
+const todayFeatured = todaySorted.slice(0, TODAY_FEATURED_CAP);
+const todayOverflow = todaySorted.slice(TODAY_FEATURED_CAP);  // only if pipeline ever exceeds cap
+const featured = todayFeatured[0];
+const featuredRest = todayFeatured.slice(1);
+
+const firstPageEarlier = earlierPapers.slice(0, PER_PAGE);
+const totalEarlierPages = Math.max(1, Math.ceil(earlierPapers.length / PER_PAGE));
+
+// Stats
+const deepCount = papers.filter(p => p.data.depth === 'full_pdf').length;
+const categories = new Set(papers.map(p => p.data.category));
 ---
 <BaseLayout title="AI Papers Daily">
   {total === 0 ? (
-    <div class="pinned">
-      还没有论文。等明天 agent 第一次跑完就会有了。或者本地执行：
-      <code>python scripts/run_all.py</code>
+    <div class="empty">
+      还没有论文落库。等明天 agent 第一次跑完就会有了。
+      <br/>本地手动跑：<code>python scripts/run_all.py</code>
     </div>
   ) : (
     <>
-      <ul class="paper-list">
-        {firstPage.map(p => <PaperCard paper={p} />)}
-      </ul>
-      {totalPages > 1 && (
-        <div class="pagination">
-          <span class="current">1</span>
-          {Array.from({ length: totalPages - 1 }, (_, i) => i + 2).map(n => (
-            <a href={`${base}/page/${n}`}>{n}</a>
-          ))}
-        </div>
+      {(todayPapers.length > 0 || newsTopics.length > 0) && (
+        <section class="today-banner">
+          <div>
+            <p class="label">今日播报 · Daily Digest</p>
+            <h2>{bannerDate} · 论文 {todayPapers.length} 篇 · 新闻 {newsTopics.length} 条</h2>
+          </div>
+          <div class="stats">
+            <div><strong>{todayPapers.length}</strong>论文</div>
+            <div><strong>{newsTopics.length}</strong>新闻</div>
+            <div><strong>{total}</strong>累计</div>
+            <div><strong>{deepCount}</strong>深度</div>
+          </div>
+        </section>
+      )}
+
+      {newsTopics.length > 0 && (
+        <>
+          <h3 class="section-h">今日新闻 · AI 行业动态</h3>
+          <div class="news-grid">
+            {newsTopics.map(t => (
+              <NewsTopic title={t.title} summary={t.summary} tags={t.tags} sources={t.sources} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {featured && (
+        <>
+          <h3 class="section-h">今日精选论文 · 共 {todayFeatured.length} 篇</h3>
+          <PaperCard paper={featured} featured />
+        </>
+      )}
+
+      {featuredRest.length > 0 && (
+        <ul class="paper-list">
+          {featuredRest.map(p => <PaperCard paper={p} />)}
+        </ul>
+      )}
+
+      {todayOverflow.length > 0 && (
+        <>
+          <h3 class="section-h">今日其他</h3>
+          <ul class="paper-list">
+            {todayOverflow.map(p => <PaperCard paper={p} />)}
+          </ul>
+        </>
+      )}
+
+      {earlierPapers.length > 0 && (
+        <>
+          <h3 class="section-h">最新归档</h3>
+          <ul class="paper-list">
+            {firstPageEarlier.map(p => <PaperCard paper={p} />)}
+          </ul>
+          {totalEarlierPages > 1 && (
+            <div class="pagination">
+              <span class="current">1</span>
+              {Array.from({ length: totalEarlierPages - 1 }, (_, i) => i + 2).map(n => (
+                <a href={`${base}/page/${n}`}>{n}</a>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </>
   )}
+
+  <div slot="footer">
+    {total > 0 && (
+      <div class="stats-row">
+        <span>累计 <strong>{total}</strong> 篇</span>
+        <span>深度解读 <strong>{deepCount}</strong></span>
+        <span>分类 <strong>{categories.size}</strong></span>
+        {latestCollected && <span>上次更新 <strong>{latestCollected}</strong></span>}
+      </div>
+    )}
+  </div>
 </BaseLayout>

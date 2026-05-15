@@ -1,0 +1,52 @@
+---
+interface SrcLink {
+  title: string;
+  url: string;
+  source: string;
+  points?: number;
+}
+
+interface Props {
+  title: string;
+  summary: string;
+  tags: string[];
+  sources: SrcLink[];
+}
+
+const { title, summary, tags, sources } = Astro.props;
+
+const sourceLabel = (s: string) => {
+  if (s === 'hn') return 'HN';
+  if (s.startsWith('reddit:')) return `r/${s.slice(7)}`;
+  if (s.startsWith('blog:')) return s.slice(5);
+  return s;
+};
+---
+<article class="news-topic">
+  <h4>
+    {sources.length > 0 ? (
+      <a href={sources[0].url} target="_blank" rel="noopener" title={sources[0].title}>{title}</a>
+    ) : title}
+  </h4>
+  <p class="summary">{summary}</p>
+  {tags.length > 0 && (
+    <div class="tags">
+      {tags.map(t => <span class="tag tag-static">{t}</span>)}
+    </div>
+  )}
+  {sources.length > 0 && (
+    <ul class="news-sources-list">
+      {sources.slice(0, 5).map(s => (
+        <li>
+          <a href={s.url} target="_blank" rel="noopener" title={s.title}>
+            <span class="src-badge">{sourceLabel(s.source)}{s.points ? ` · ${s.points}↑` : ''}</span>
+            <span class="src-title">{s.title}</span>
+          </a>
+        </li>
+      ))}
+      {sources.length > 5 && (
+        <li class="src-more">+{sources.length - 5} more</li>
+      )}
+    </ul>
+  )}
+</article>

@@ -6,6 +6,7 @@ existing markdown files in src/content/papers/.
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from dataclasses import asdict
@@ -24,10 +25,27 @@ from common import (
     write_json,
 )
 
-ARXIV_CATEGORIES = ["cs.IR", "cs.LG", "cs.CL", "cs.AI"]
-ARXIV_PER_CAT = 80           # raw cap before dedup/filter
+# Data sources — extend by overriding ARXIV_CATEGORIES env var.
+#   cs.IR  information retrieval / recsys (核心)
+#   cs.LG  machine learning
+#   cs.CL  computation and language / NLP
+#   cs.AI  artificial intelligence
+#   cs.CV  computer vision (含 multimodal 工作)
+#   cs.MM  multimedia
+#   cs.HC  human-computer interaction (Agent UX、interactive eval)
+#   stat.ML statistics ML
+ARXIV_CATEGORIES = [
+    c.strip()
+    for c in os.environ.get(
+        "ARXIV_CATEGORIES",
+        "cs.IR,cs.LG,cs.CL,cs.AI,cs.CV,cs.MM,cs.HC,stat.ML",
+    ).split(",")
+    if c.strip()
+]
+# 30/cat keeps total candidate count similar to the 4-cat × 80 baseline
+ARXIV_PER_CAT = int(os.environ.get("ARXIV_PER_CAT", "30"))
 HF_DAILY_URL = "https://huggingface.co/api/daily_papers"
-HF_LIMIT = 50
+HF_LIMIT = int(os.environ.get("HF_LIMIT", "50"))
 TIMEOUT = 30.0
 
 

@@ -2,25 +2,62 @@
 import type { CollectionEntry } from 'astro:content';
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
-interface Props { paper: CollectionEntry<'papers'> }
-const { paper } = Astro.props;
+interface Props {
+  paper: CollectionEntry<'papers'>;
+  featured?: boolean;  // larger card layout for "today's pick"
+}
+const { paper, featured = false } = Astro.props;
 const { data, slug } = paper;
 const published = data.published.toISOString().slice(0, 10);
+const sourceLabel = data.source.startsWith('arxiv-')
+  ? data.source.replace('arxiv-', '')
+  : data.source === 'huggingface-daily' ? 'HF Daily' : data.source;
+const affiliations = (data.affiliations || []).slice(0, 5);
 ---
-<article class="paper-card">
-  <h2>
-    <a href={`${base}/paper/${slug}`}>{data.title}</a>
-  </h2>
-  <div class="meta">
-    <a href={`${base}/category/${data.category}`}>{data.category}</a>
-    <span class="sep">|</span>
-    <time datetime={published}>{published}</time>
-    {data.score >= 8 && <><span class="sep">|</span><span title="深度解读（读了 PDF 全文）">★ deep</span></>}
-  </div>
-  <p class="summary">{data.one_liner}</p>
-  <div class="tags">
-    {data.tags.map(t => (
-      <a class="tag" href={`${base}/tag/${t}`}>{t}</a>
-    ))}
-  </div>
-</article>
+{featured ? (
+  <article class="featured">
+    <h2><a href={`${base}/paper/${slug}`}>{data.title}</a></h2>
+    {data.title_zh && <p class="title-zh">{data.title_zh}</p>}
+    {affiliations.length > 0 && (
+      <p class="affiliations">{affiliations.join(' · ')}</p>
+    )}
+    <p class="summary">{data.one_liner}</p>
+    <div class="meta">
+      <a href={`${base}/category/${data.category}`}>{data.category}</a>
+      <span class="sep">|</span>
+      <time datetime={published}>{published}</time>
+      <span class="sep">|</span>
+      <span>{sourceLabel}</span>
+      <span class="sep">|</span>
+      <span class="badge badge-score">score {data.score}/10</span>
+      {data.depth === 'full_pdf' && <span class="badge badge-deep">★ deep read</span>}
+    </div>
+    <div class="tags">
+      {data.tags.map((t: string) => (
+        <a class="tag" href={`${base}/tag/${t}`}>{t}</a>
+      ))}
+    </div>
+  </article>
+) : (
+  <article class="paper-card">
+    <h2><a href={`${base}/paper/${slug}`}>{data.title}</a></h2>
+    {data.title_zh && <p class="title-zh">{data.title_zh}</p>}
+    <div class="meta">
+      <a href={`${base}/category/${data.category}`}>{data.category}</a>
+      <span class="sep">|</span>
+      <time datetime={published}>{published}</time>
+      <span class="sep">|</span>
+      <span class="badge badge-score">score {data.score}/10</span>
+      {data.depth === 'full_pdf' && <span class="badge badge-deep">★ deep</span>}
+    </div>
+    {affiliations.length > 0 && (
+      <p class="affiliations">{affiliations.join(' · ')}</p>
+    )}
+    <p class="summary">{data.one_liner}</p>
+    <div class="tags">
+      {data.tags.map((t: string) => (
+        <a class="tag" href={`${base}/tag/${t}`}>{t}</a>
+      ))}
+    </div>
+  </article>
+)}

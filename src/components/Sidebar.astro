@@ -1,0 +1,39 @@
+---
+const RESUME_URL = "https://slinene.github.io/";
+const GITHUB_URL = "https://github.com/Slinene";
+const REPO_URL = "https://github.com/Slinene/ai-papers-daily";
+---
+<aside class="sidebar">
+  <div class="profile-card">
+    <a href={RESUME_URL} class="profile-avatar" target="_blank" rel="noopener" aria-label="个人简历">S</a>
+    <h3 class="profile-name">Slinene</h3>
+    <p class="profile-tagline">AI Engineer · LLM, RecSys & Agents</p>
+  </div>
+
+  <nav class="sidebar-section">
+    <h4 class="sidebar-h">个人链接</h4>
+    <ul class="sidebar-links">
+      <li>
+        <a href={RESUME_URL} target="_blank" rel="noopener">
+          <span class="link-icon">📄</span> 个人简历 / 站点
+        </a>
+      </li>
+      <li>
+        <a href={GITHUB_URL} target="_blank" rel="noopener">
+          <span class="link-icon">⌬</span> GitHub
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <section class="sidebar-section">
+    <h4 class="sidebar-h">关于本站</h4>
+    <p class="sidebar-text">
+      由 AI agent 每日自动收集、总结并播报的 AI / 推荐系统论文 + 行业动态。
+      数据来自 arXiv、Hugging Face Daily Papers、Hacker News、Reddit。
+    </p>
+    <p class="sidebar-text" style="margin-top: 8px;">
+      <a href={REPO_URL} target="_blank" rel="noopener">→ 源码 on GitHub</a>
+    </p>
+  </section>
+</aside>

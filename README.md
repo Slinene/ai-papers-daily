@@ -1,7 +1,7 @@
 # AI Papers Daily
 
 Agent-curated, daily-refreshed AI paper digest. arXiv + HuggingFace Daily
-Papers → Claude (Haiku 4.5 / Sonnet 4.6) → Markdown → Astro static site →
+Papers → DeepSeek (OpenAI 兼容协议) → Markdown → Astro static site →
 GitHub Pages + 飞书消息卡片推送。
 
 Inspired by [recsys-frontier](https://blog.recsys-frontier.com/) (NotionNext),
@@ -16,10 +16,10 @@ but content production is fully automated by an LLM agent.
  fetch  → arXiv (cs.IR/cs.LG/cs.CL/cs.AI) + HuggingFace Daily Papers
         │   dedupe by arxiv_id against src/content/papers/
         ▼
- process → Claude Haiku scores relevance (0-10)
+ process → DeepSeek scores relevance (0-10)
         │   keep score >= MIN_SCORE_KEEP
-        │   Haiku writes card from abstract
-        │   score >= MIN_SCORE_DEEP → Sonnet reads PDF for deep card
+        │   DeepSeek writes card from abstract
+        │   score >= MIN_SCORE_DEEP → pypdf 抽 PDF 文本 → DeepSeek 写深度卡
         ▼
  write_md → render frontmatter + body to src/content/papers/{date}-{slug}.md
         ▼
@@ -80,7 +80,7 @@ Repo → **Settings → Secrets and variables → Actions**:
 
 | Name | Value |
 |---|---|
-| `ANTHROPIC_API_KEY` | `sk-ant-...` from <https://console.anthropic.com> |
+| `DEEPSEEK_API_KEY` | `sk-...` from <https://platform.deepseek.com/> → API Keys |
 | `FEISHU_WEBHOOK` | 群设置 → 群机器人 → 添加自定义机器人，复制 webhook URL |
 | `FEISHU_SECRET` | Optional. Only if you enabled「签名校验」when adding the bot |
 
@@ -90,9 +90,12 @@ Repo → **Settings → Secrets and variables → Actions**:
 |---|---|---|
 | `SITE_URL` | `https://<you>.github.io` | Used in canonical links + 飞书 card buttons |
 | `BASE_PATH` | `/ai-papers-daily` | URL path prefix (empty for user-site repo) |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | OpenAI 兼容 endpoint，留空走默认官方 |
+| `DEEPSEEK_MODEL` | `DeepSeek-V4-Pro` | 模型 id；改成你账号能用的型号 |
 | `MAX_PAPERS_PER_DAY` | `30` | Hard cap after relevance filter |
 | `MIN_SCORE_KEEP` | `7` | Minimum relevance score to keep |
 | `MIN_SCORE_DEEP` | `8` | Score above which the agent reads the full PDF |
+| `PDF_TEXT_MAX_CHARS` | `60000` | PDF 抽取后送给模型的最大字符数（防止炸 context）|
 
 ### 4. Local dev
 
@@ -100,7 +103,7 @@ Repo → **Settings → Secrets and variables → Actions**:
 # Python env
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # fill in ANTHROPIC_API_KEY + FEISHU_WEBHOOK
+cp .env.example .env  # fill in DEEPSEEK_API_KEY + FEISHU_WEBHOOK
 
 # Run the full agent pipeline locally
 python scripts/run_all.py
@@ -130,17 +133,17 @@ npm run build    # ./dist
 
 ## Cost ballpark
 
-With defaults (~50 papers fetched/day, ~10 kept, ~3 deep-read):
+With defaults (~50 papers fetched/day, ~10 kept, ~3 deep-read), all calls on
+DeepSeek。具体单价以 DeepSeek 当前定价为准 — V 系列模型 input/output 通常都比
+Claude Haiku 还便宜，所以总成本一般在 **$1-3/月** 量级。
 
-| Call | Model | Tokens (rough) | Daily $ |
-|---|---|---|---|
-| Relevance scoring | Haiku 4.5 | ~50 × (1k in + 0.1k out) | ~$0.07 |
-| Abstract summary  | Haiku 4.5 | ~10 × (2k in + 1k out)   | ~$0.07 |
-| PDF deep read     | Sonnet 4.6 | ~3 × (20k in + 2k out)  | ~$0.27 |
-| **Total**         |   |                              | **~$0.40 / day** |
+主要花费分布：
+- ~50 次 relevance scoring（每次 ~1k 输入 + 0.1k 输出）
+- ~10 次 abstract summary（每次 ~2k 输入 + 1k 输出）
+- ~3 次 PDF deep read（每次 ~20k 输入 + 2k 输出）
 
-That's ~$12/month. Tweak `MIN_SCORE_KEEP` / `MIN_SCORE_DEEP` / `MAX_PAPERS_PER_DAY`
-to control spend.
+调参降本：调高 `MIN_SCORE_KEEP` / `MIN_SCORE_DEEP`，或调低 `MAX_PAPERS_PER_DAY`
+和 `PDF_TEXT_MAX_CHARS`。
 
 ## Troubleshooting
 

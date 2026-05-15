@@ -23,14 +23,17 @@ from common import (
 
 
 def render_one(p: dict) -> Path:
-    title = p.get("title_zh") or p["title"]
-    slug = make_slug(title, p["arxiv_id"])
+    title_en = (p.get("title") or "").strip()
+    title_zh = (p.get("title_zh") or "").strip()
+    slug = make_slug(title_zh or title_en, p["arxiv_id"])
     date = (p.get("published") or now_iso_date())[:10]
     path = PAPERS_DIR / f"{date}-{slug}.md"
 
     fm = {
-        "title": title,
+        "title": title_en,                              # English primary
+        "title_zh": title_zh or None,                   # Chinese secondary
         "authors": (p.get("authors") or [])[:10],
+        "affiliations": (p.get("affiliations") or [])[:6],
         "arxiv_id": p["arxiv_id"],
         "url": p["url"],
         "pdf_url": p.get("pdf_url") or "",
@@ -43,9 +46,13 @@ def render_one(p: dict) -> Path:
         "source": p.get("source", ""),
         "depth": p.get("depth", "abstract"),
     }
-    # pdf_url may be empty string — Astro schema marks it optional, so drop empties
+    # drop empty optional fields so the YAML is clean
     if not fm["pdf_url"]:
         fm.pop("pdf_url")
+    if not fm["title_zh"]:
+        fm.pop("title_zh")
+    if not fm["affiliations"]:
+        fm.pop("affiliations")
 
     fm_yaml = yaml.safe_dump(
         fm, allow_unicode=True, sort_keys=False, default_flow_style=False

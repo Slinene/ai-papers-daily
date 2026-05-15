@@ -1,0 +1,93 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ArchiveCard from '../../components/ArchiveCard.astro';
+
+export const prerender = true;
+
+const all = await getCollection('archive_papers');
+
+// Group by topic, preserve a stable order (agent-rl first, then user-simulation, then gen-rec, etc.)
+const ORDER = ['agent-rl', 'user-simulation', 'gen-rec'];
+type TopicGroup = {
+  id: string;
+  name: string;
+  icon: string;
+  papers: typeof all;
+};
+const byTopic = new Map<string, TopicGroup>();
+for (const p of all) {
+  const id = p.data.topic;
+  if (!byTopic.has(id)) {
+    byTopic.set(id, {
+      id,
+      name: p.data.topic_name,
+      icon: p.data.topic_icon || '🗂',
+      papers: [] as any,
+    });
+  }
+  (byTopic.get(id) as any).papers.push(p);
+}
+const topics = Array.from(byTopic.values()).sort((a, b) => {
+  const ai = ORDER.indexOf(a.id);
+  const bi = ORDER.indexOf(b.id);
+  if (ai !== -1 && bi !== -1) return ai - bi;
+  if (ai !== -1) return -1;
+  if (bi !== -1) return 1;
+  return a.name.localeCompare(b.name);
+});
+
+// Sort papers within each topic by date desc
+for (const t of topics) {
+  t.papers.sort((a: any, b: any) => (b.data.date || '').localeCompare(a.data.date || ''));
+}
+
+const totalPapers = all.length;
+---
+<BaseLayout title="论文沉淀 · AI Papers Daily" description="按主题维护的论文阅读笔记沉淀">
+  <header class="collection-header">
+    <h2>论文沉淀</h2>
+    <p class="collection-tagline">
+      按主题维护的论文阅读笔记，累计 <strong>{totalPapers}</strong> 篇 ·
+      涵盖 <strong>{topics.length}</strong> 个主题
+    </p>
+  </header>
+
+  <div class="tab-bar" role="tablist" aria-label="论文主题">
+    {topics.map((t, i) => (
+      <button
+        type="button"
+        class="tab"
+        data-topic={t.id}
+        role="tab"
+        aria-selected={i === 0 ? 'true' : 'false'}
+      >
+        <span class="tab-icon">{t.icon}</span>
+        <span class="tab-name">{t.name}</span>
+        <span class="tab-count">{t.papers.length}</span>
+      </button>
+    ))}
+  </div>
+
+  <div class="collection-list">
+    {topics.map((t, i) => (
+      <section data-topic={t.id} class={i === 0 ? 'topic-pane' : 'topic-pane hidden'}>
+        {t.papers.map((p: any) => <ArchiveCard paper={p} />)}
+      </section>
+    ))}
+  </div>
+
+  <script is:inline>
+    document.addEventListener('DOMContentLoaded', () => {
+      const buttons = document.querySelectorAll('.tab[data-topic]');
+      const panes = document.querySelectorAll('.topic-pane[data-topic]');
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const topic = btn.getAttribute('data-topic');
+          buttons.forEach((b) => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+          panes.forEach((p) => p.classList.toggle('hidden', p.getAttribute('data-topic') !== topic));
+        });
+      });
+    });
+  </script>
+</BaseLayout>

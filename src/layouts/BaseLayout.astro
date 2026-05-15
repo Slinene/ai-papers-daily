@@ -1,13 +1,16 @@
 ---
 import '../styles/global.css';
+import Sidebar from '../components/Sidebar.astro';
 
 interface Props {
   title?: string;
   description?: string;
 }
 
-const { title = 'AI Papers Daily', description = 'Daily AI / RecSys papers, summarized by an agent.' } = Astro.props;
+const { title = 'AI Papers Daily', description = '每日 AI / 推荐系统论文精选，由 agent 自动汇编。' } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const pathname = Astro.url?.pathname?.replace(/\/$/, '') || '';
+const isActive = (p: string) => pathname === `${base}${p}`.replace(/\/$/, '');
 ---
 <!doctype html>
 <html lang="zh-CN">
@@ -15,6 +18,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
     <title>{title}</title>
     <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
     <link rel="alternate" type="application/rss+xml" title="RSS" href={`${base}/rss.xml`} />
@@ -22,22 +28,39 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   <body>
     <header class="site-header">
       <div class="inner">
-        <h1 class="site-title"><a href={`${base}/`}>AI Papers Daily</a></h1>
-        <p class="site-tagline">每天自动收集、过滤、总结推荐系统与大模型方向的论文。</p>
+        <div class="brand">
+          <a href={`${base}/`} aria-label="home">
+            <span class="logo">AI</span>
+          </a>
+          <div>
+            <h1 class="site-title"><a href={`${base}/`}>AI Papers Daily</a></h1>
+            <p class="site-tagline">每日 AI / 推荐系统论文精选 · agent 自动汇编</p>
+          </div>
+        </div>
         <nav class="nav">
-          <a href={`${base}/`}>首页</a>
-          <a href={`${base}/archive`}>归档</a>
-          <a href={`${base}/categories`}>分类</a>
-          <a href={`${base}/tags`}>标签</a>
-          <a href={`${base}/rss.xml`}>RSS</a>
+          <a href={`${base}/`} class={isActive('') ? 'active' : ''}>首页</a>
+          <a href={`${base}/collection`} class={pathname.startsWith(`${base}/collection`) ? 'active' : ''}>论文沉淀</a>
+          <a href={`${base}/archive`} class={isActive('/archive') ? 'active' : ''}>归档</a>
+          <a href={`${base}/categories`} class={isActive('/categories') ? 'active' : ''}>分类</a>
+          <a href={`${base}/tags`} class={isActive('/tags') ? 'active' : ''}>标签</a>
+          <span class="sep">·</span>
+          <a href={`${base}/rss.xml`} class="ext">RSS</a>
+          <a href="https://github.com/Slinene/ai-papers-daily" class="ext" target="_blank" rel="noopener">GitHub</a>
         </nav>
       </div>
     </header>
-    <main class="container">
-      <slot />
-    </main>
+    <div class="layout">
+      <Sidebar />
+      <main class="content">
+        <slot />
+      </main>
+    </div>
     <footer>
-      Built by an agent · Powered by Astro · <a href="https://github.com">Source on GitHub</a>
+      <slot name="footer" />
+      <div>
+        Built by an agent · <a href="https://github.com/Slinene/ai-papers-daily" target="_blank" rel="noopener">Source</a>
+        · Powered by <a href="https://astro.build" target="_blank" rel="noopener">Astro</a> & DeepSeek
+      </div>
     </footer>
   </body>
 </html>

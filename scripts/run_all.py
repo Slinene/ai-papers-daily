@@ -19,10 +19,13 @@ def step(label: str, script: str) -> None:
 
 
 def main():
-    step("fetch",       "fetch.py")
-    step("process",     "process.py")
-    step("write_md",    "write_md.py")
-    step("push_feishu", "push_feishu.py")
+    step("fetch papers",      "fetch.py")
+    step("process papers",    "process.py")
+    step("write paper md",    "write_md.py")
+    step("fetch news",        "fetch_news.py")
+    step("process news",      "process_news.py")
+    step("write news md",     "write_news_md.py")
+    step("push feishu",       "push_feishu.py")
     log.info("pipeline done")
 
 

@@ -1,0 +1,28 @@
+---
+import type { CollectionEntry } from 'astro:content';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+interface Props { paper: CollectionEntry<'archive_papers'> }
+const { paper } = Astro.props;
+const d = paper.data;
+---
+<article class="archive-card">
+  <h3>
+    <a href={`${base}/collection/${d.topic}/${paper.slug.split('/').pop()}`}>{d.title}</a>
+  </h3>
+  <div class="archive-meta">
+    {d.affiliation && <span>{d.affiliation}</span>}
+    {d.date && <><span class="sep">·</span><time>{d.date}</time></>}
+    {d.venue && <><span class="sep">·</span><span>{d.venue}</span></>}
+    {d.unverified && <><span class="sep">·</span><span class="badge-unverified">未核实</span></>}
+  </div>
+  {d.idea && <p class="archive-idea">{d.idea}</p>}
+  <div class="tags">
+    {d.tags.map((t: string) => <span class="tag tag-static">{t}</span>)}
+  </div>
+  <div class="archive-links">
+    {d.paperUrl && <a href={d.paperUrl} target="_blank" rel="noopener">📄 paper</a>}
+    {d.codeUrl && <a href={d.codeUrl} target="_blank" rel="noopener">⌬ code</a>}
+    <a href={`${base}/collection/${d.topic}/${paper.slug.split('/').pop()}`} class="read-more">阅读详情 →</a>
+  </div>
+</article>

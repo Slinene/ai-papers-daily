@@ -1,0 +1,47 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const papers = await getCollection('archive_papers');
+  return papers.map(p => {
+    // Slug here is "agent-rl/constitutional-ai-..." — split into topic + slug
+    const parts = p.slug.split('/');
+    const topic = parts[0];
+    const slug = parts.slice(1).join('/');
+    return { params: { topic, slug }, props: { paper: p } };
+  });
+}
+
+const { paper } = Astro.props;
+const d = paper.data;
+const { Content } = await paper.render();
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<BaseLayout title={`${d.title} · 论文沉淀`} description={d.idea || d.title}>
+  <article class="archive-detail">
+    <div class="meta">
+      <a href={`${base}/collection`}>← 论文沉淀</a>
+      <span class="sep">/</span>
+      <span>{d.topic_icon} {d.topic_name}</span>
+      {d.date && <><span class="sep">·</span><time>{d.date}</time></>}
+      {d.venue && <><span class="sep">·</span><span>{d.venue}</span></>}
+      {d.unverified && <><span class="sep">·</span><span class="badge-unverified">未核实</span></>}
+    </div>
+    <h1>{d.title}</h1>
+    {d.authors && <p class="archive-authors">{d.authors}</p>}
+    {d.affiliation && <p class="affiliations">{d.affiliation}</p>}
+    {d.idea && <p class="one-liner">{d.idea}</p>}
+    <div class="tags" style="margin: 6px 0 22px;">
+      {d.tags.map((t: string) => <span class="tag tag-static">{t}</span>)}
+    </div>
+    <div class="content">
+      <Content />
+    </div>
+    <div class="ext-links">
+      {d.paperUrl && <a href={d.paperUrl} target="_blank" rel="noopener">📄 paper</a>}
+      {d.codeUrl && <a href={d.codeUrl} target="_blank" rel="noopener">⌬ code</a>}
+      <a href={`${base}/collection`}>← 回到沉淀</a>
+    </div>
+  </article>
+</BaseLayout>
