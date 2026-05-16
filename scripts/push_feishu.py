@@ -1,19 +1,15 @@
-"""Stage 4: push today's new papers to a Feishu group.
+"""Stage 4: push ONE polished Feishu card (news first, then papers) to one or
+more groups.
 
-Two transport modes, auto-detected by env vars:
+Transports (auto-detected; IM API preferred):
+  A. Custom group bot webhook  — FEISHU_WEBHOOK [+ FEISHU_SECRET]
+  B. Self-built app via IM API — FEISHU_APP_ID + FEISHU_APP_SECRET + FEISHU_CHAT_ID
 
-  Mode A — Custom group bot webhook (simplest, no app setup)
-    Vars: FEISHU_WEBHOOK [+ FEISHU_SECRET if 签名校验 enabled]
-    Just POST the card envelope to the webhook URL.
+Multi-target: FEISHU_CHAT_ID / FEISHU_WEBHOOK may be comma-separated to fan
+the same card out to several groups.
 
-  Mode B — Feishu self-built app via IM API (preferred when set)
-    Vars: FEISHU_APP_ID + FEISHU_APP_SECRET + FEISHU_CHAT_ID
-    Steps: exchange (app_id, app_secret) for tenant_access_token, then POST
-    to im/v1/messages?receive_id_type=chat_id. Content must be the card
-    body serialized as a JSON STRING (not a nested object).
-    App needs `im:message:send_as_bot` permission.
-
-If both modes' env vars are present, Mode B (IM API) wins.
+Card design goals: single scannable card, news section then papers section,
+clean typography, site link footer — newsletter/commercial look.
 """
 from __future__ import annotations
 
@@ -21,7 +17,6 @@ import base64
 import hashlib
 import hmac
 import json
-import os
 import time
 
 import httpx
@@ -29,208 +24,58 @@ import yaml
 
 from common import CACHE_DIR, PAPERS_DIR, env_str, log, now_iso_date, read_json
 
-# Mode A: webhook
+# Mode A
 FEISHU_WEBHOOK = env_str("FEISHU_WEBHOOK")
 FEISHU_SECRET = env_str("FEISHU_SECRET")
-
-# Mode B: self-built app + IM API
+# Mode B
 FEISHU_APP_ID = env_str("FEISHU_APP_ID")
 FEISHU_APP_SECRET = env_str("FEISHU_APP_SECRET")
 FEISHU_CHAT_ID = env_str("FEISHU_CHAT_ID")
 FEISHU_RECEIVE_ID_TYPE = env_str("FEISHU_RECEIVE_ID_TYPE", "chat_id")
-
 FEISHU_OPEN_HOST = env_str("FEISHU_OPEN_HOST", "https://open.feishu.cn").rstrip("/")
 
 SITE_URL = env_str("SITE_URL", "https://slinene.github.io").rstrip("/")
 BASE_PATH = env_str("BASE_PATH", "/ai-papers-daily").strip("/")
 SITE_BASE = f"{SITE_URL}/{BASE_PATH}" if BASE_PATH else SITE_URL
 
-PAPERS_PER_CARD = 8
+# How many of each to show in the single card (keeps it scannable)
+NEWS_IN_CARD = 8
+PAPERS_IN_CARD = 6
+NEWS_SUMMARY_MAX = 76
+HEADER_TEMPLATE = env_str("FEISHU_CARD_TEMPLATE", "indigo")
+
+
+def _split(v: str) -> list[str]:
+    return [x.strip() for x in (v or "").split(",") if x.strip()]
 
 
 def have_im_api_creds() -> bool:
     return bool(FEISHU_APP_ID and FEISHU_APP_SECRET and FEISHU_CHAT_ID)
 
 
-# --------- Card builder (returns the body: config/header/elements) -----------
-
-def build_card_body(papers: list[dict], chunk_idx: int, chunk_total: int) -> dict:
-    today = now_iso_date()
-    subtitle = f"今日新增 {len(papers)} 篇"
-    if chunk_total > 1:
-        subtitle += f" · 第 {chunk_idx + 1}/{chunk_total} 组"
-
-    elements: list[dict] = []
-    for i, p in enumerate(papers):
-        tags = " ".join(f"`#{t}`" for t in (p.get("tags") or [])[:5])
-        category = p.get("category", "")
-        score = int(p.get("score", 0))
-        depth_mark = " ⭐" if p.get("depth") == "full_pdf" else ""
-        title = p.get("title", "")
-        one_liner = p.get("one_liner", "")
-        url_site = f"{SITE_BASE}/paper/{p['_slug']}"
-        url_arxiv = p.get("url") or f"https://arxiv.org/abs/{p.get('arxiv_id','')}"
-
-        md = (
-            f"**[{title}]({url_site})**{depth_mark}\n"
-            f"`{category}` · score {score}/10 · {tags}\n"
-            f"{one_liner}"
-        )
-        elements.append({"tag": "markdown", "content": md})
-        elements.append({
-            "tag": "action",
-            "actions": [
-                {
-                    "tag": "button",
-                    "text": {"tag": "plain_text", "content": "📖 阅读卡片"},
-                    "type": "primary",
-                    "url": url_site,
-                },
-                {
-                    "tag": "button",
-                    "text": {"tag": "plain_text", "content": "📄 arXiv 原文"},
-                    "type": "default",
-                    "url": url_arxiv,
-                },
-            ],
-        })
-        if i < len(papers) - 1:
-            elements.append({"tag": "hr"})
-
-    elements.append({
-        "tag": "note",
-        "elements": [
-            {"tag": "plain_text", "content": f"全部论文与归档 → {SITE_BASE}"}
-        ],
-    })
-
-    return {
-        "config": {"wide_screen_mode": True},
-        "header": {
-            "title": {"tag": "plain_text", "content": f"📄 AI Papers Daily · {today}"},
-            "subtitle": {"tag": "plain_text", "content": subtitle},
-            "template": "blue",
-        },
-        "elements": elements,
-    }
+def _clip(s: str, n: int) -> str:
+    s = (s or "").strip().replace("\n", " ")
+    return s if len(s) <= n else s[: n - 1].rstrip() + "…"
 
 
-def build_empty_day_body() -> dict:
-    return {
-        "config": {"wide_screen_mode": True},
-        "header": {
-            "title": {"tag": "plain_text", "content": f"📄 AI Papers Daily · {now_iso_date()}"},
-            "subtitle": {"tag": "plain_text", "content": "今天没有新论文进入榜单"},
-            "template": "grey",
-        },
-        "elements": [
-            {"tag": "markdown",
-             "content": f"Agent 已运行，但今日没有相关性达标的论文。\n站点: {SITE_BASE}"}
-        ],
-    }
+def _src_label(s: str) -> str:
+    if s == "hn":
+        return "HN"
+    if s.startswith("reddit:"):
+        return "r/" + s[7:]
+    if s.startswith("cn:"):
+        return s[3:]
+    if s.startswith("blog:"):
+        return s[5:]
+    return s
 
 
-# --------- Mode A: custom bot webhook ----------------------------------------
+# --------- data loaders ------------------------------------------------------
 
-def feishu_sign(secret: str, ts: int) -> str:
-    """飞书自定义机器人签名: base64(hmac-sha256("{ts}\n{secret}", "")).
-    The key is the salted string itself; the body is empty bytes."""
-    key = f"{ts}\n{secret}".encode("utf-8")
-    digest = hmac.new(key, b"", digestmod=hashlib.sha256).digest()
-    return base64.b64encode(digest).decode("utf-8")
+def load_today_news() -> list[dict]:
+    d = read_json(CACHE_DIR / "processed_news.json") or {}
+    return d.get("topics") or []
 
-
-def send_via_webhook(card_body: dict) -> None:
-    body: dict = {"msg_type": "interactive", "card": card_body}
-    if FEISHU_SECRET:
-        ts = int(time.time())
-        body["timestamp"] = str(ts)
-        body["sign"] = feishu_sign(FEISHU_SECRET, ts)
-    with httpx.Client(timeout=15.0) as cli:
-        r = cli.post(FEISHU_WEBHOOK, json=body)
-        r.raise_for_status()
-        log.info("webhook push: HTTP %s body=%s", r.status_code, r.text[:240])
-
-
-# --------- Mode B: self-built app via IM API ---------------------------------
-
-_token_cache: dict = {"token": "", "expire_at": 0.0}
-
-
-def get_tenant_access_token() -> str:
-    """Exchange app credentials for a 2h tenant_access_token. Cached in-process."""
-    now = time.time()
-    if _token_cache["token"] and now < _token_cache["expire_at"] - 60:
-        return _token_cache["token"]
-
-    url = f"{FEISHU_OPEN_HOST}/open-apis/auth/v3/tenant_access_token/internal"
-    with httpx.Client(timeout=15.0) as cli:
-        r = cli.post(url, json={
-            "app_id": FEISHU_APP_ID,
-            "app_secret": FEISHU_APP_SECRET,
-        })
-        r.raise_for_status()
-        data = r.json()
-    if data.get("code") != 0:
-        raise RuntimeError(f"tenant_access_token error: {data}")
-    _token_cache["token"] = data["tenant_access_token"]
-    _token_cache["expire_at"] = now + int(data.get("expire", 7200))
-    return _token_cache["token"]
-
-
-def send_via_im_api(card_body: dict) -> None:
-    """POST to im/v1/messages with the card body JSON-stringified into `content`.
-
-    receive_id_type defaults to chat_id; override via FEISHU_RECEIVE_ID_TYPE
-    (open_id / user_id / union_id / email / chat_id).
-    """
-    token = get_tenant_access_token()
-    url = (f"{FEISHU_OPEN_HOST}/open-apis/im/v1/messages"
-           f"?receive_id_type={FEISHU_RECEIVE_ID_TYPE}")
-    payload = {
-        "receive_id": FEISHU_CHAT_ID,
-        "msg_type": "interactive",
-        "content": json.dumps(card_body, ensure_ascii=False),  # MUST be a string
-    }
-    with httpx.Client(timeout=15.0) as cli:
-        r = cli.post(url, json=payload, headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json; charset=utf-8",
-        })
-    # Feishu returns a useful {code,msg} body even on HTTP 400 — read it before
-    # raising so the failure is diagnosable (wrong chat_id / bot not in chat /
-    # missing permission all surface here with distinct codes).
-    try:
-        data = r.json()
-    except Exception:
-        data = {"_raw": r.text[:500]}
-    if r.status_code >= 400 or data.get("code") not in (0, None):
-        raise RuntimeError(
-            f"im/v1/messages failed: HTTP {r.status_code} "
-            f"code={data.get('code')} msg={data.get('msg')!r} "
-            f"(receive_id={FEISHU_CHAT_ID!r} type={FEISHU_RECEIVE_ID_TYPE!r}) "
-            f"full={data}"
-        )
-    msg_id = (data.get("data") or {}).get("message_id", "?")
-    log.info("im-api push: message_id=%s", msg_id)
-
-
-# --------- Dispatch ----------------------------------------------------------
-
-def dispatch(card_body: dict) -> None:
-    """Pick a transport based on which env vars are populated.
-    Order of preference: IM API (more reliable for app integrations) > webhook."""
-    if have_im_api_creds():
-        send_via_im_api(card_body)
-        return
-    if FEISHU_WEBHOOK:
-        send_via_webhook(card_body)
-        return
-    log.warning("no feishu transport configured (set FEISHU_APP_ID+SECRET+CHAT_ID "
-                "or FEISHU_WEBHOOK) — skipping push")
-
-
-# --------- Existing helpers --------------------------------------------------
 
 def load_today_papers() -> list[dict]:
     summary = read_json(CACHE_DIR / "today_papers.json")
@@ -241,8 +86,7 @@ def load_today_papers() -> list[dict]:
         path = PAPERS_DIR / fname
         if not path.exists():
             continue
-        text = path.read_text(encoding="utf-8")
-        parts = text.split("---", 2)
+        parts = path.read_text(encoding="utf-8").split("---", 2)
         if len(parts) < 3:
             continue
         try:
@@ -256,22 +100,210 @@ def load_today_papers() -> list[dict]:
     return out
 
 
-def main():
-    papers = load_today_papers()
-    if not papers:
-        log.info("no papers today")
-        if env_str("PUSH_EMPTY_DAY", "0") == "1":
-            dispatch(build_empty_day_body())
+# --------- the single combined card -----------------------------------------
+
+def build_card_body(news: list[dict], papers: list[dict]) -> dict:
+    today = now_iso_date()
+    news = news[:NEWS_IN_CARD]
+    papers = papers[:PAPERS_IN_CARD]
+
+    elements: list[dict] = []
+
+    # ---- News section ----
+    if news:
+        elements.append({
+            "tag": "markdown",
+            "content": "**🗞️  今日 AI 行业动态**",
+        })
+        elements.append({"tag": "hr"})
+        for i, t in enumerate(news, 1):
+            title = t.get("title", "").strip()
+            srcs = t.get("sources") or []
+            url = srcs[0]["url"] if srcs else ""
+            head = f"**{i}. [{title}]({url})**" if url else f"**{i}. {title}**"
+            summary = _clip(t.get("summary", ""), NEWS_SUMMARY_MAX)
+            tags = t.get("tags") or []
+            chips = "  ".join(f"`{x}`" for x in tags[:3])
+            srcline = ""
+            if srcs:
+                s0 = srcs[0]
+                pts = f" · {s0['points']}↑" if s0.get("points") else ""
+                srcline = f"  ·  {_src_label(s0.get('source',''))}{pts}"
+            body = f"{head}\n{summary}\n{chips}{srcline}"
+            elements.append({"tag": "markdown", "content": body})
+
+    # ---- Papers section ----
+    if papers:
+        if news:
+            elements.append({"tag": "hr"})
+        elements.append({
+            "tag": "markdown",
+            "content": "**📄  今日精选论文**",
+        })
+        elements.append({"tag": "hr"})
+        for i, p in enumerate(papers, 1):
+            title = p.get("title", "").strip()
+            slug = p.get("_slug", "")
+            site_url = f"{SITE_BASE}/paper/{slug}" if slug else SITE_BASE
+            star = " ⭐" if p.get("depth") == "full_pdf" else ""
+            cat = p.get("category", "")
+            score = int(p.get("score", 0))
+            tags = p.get("tags") or []
+            chips = "  ".join(f"`{x}`" for x in tags[:3])
+            one = _clip(p.get("one_liner", ""), 90)
+            head = f"**{i}. [{title}]({site_url})**{star}"
+            meta = f"`{cat}` · {score}/10 · {chips}" if chips else f"`{cat}` · {score}/10"
+            elements.append({
+                "tag": "markdown",
+                "content": f"{head}\n{one}\n{meta}",
+            })
+
+    if not elements:
+        elements.append({
+            "tag": "markdown",
+            "content": "今日没有新内容进入榜单。",
+        })
+
+    # ---- footer with site link ----
+    elements.append({"tag": "hr"})
+    elements.append({
+        "tag": "note",
+        "elements": [{
+            "tag": "lark_md",
+            "content": f"🔗 [打开完整站点 · 论文沉淀 · 历史归档]({SITE_BASE}/)"
+                       f"   ·   每日 09:00 由 AI agent 自动汇编",
+        }],
+    })
+
+    n_news, n_pap = len(news), len(papers)
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "title": {"tag": "plain_text", "content": f"📡 AI Radar Daily · {today}"},
+            "subtitle": {"tag": "plain_text",
+                         "content": f"{n_news} 条行业动态 · {n_pap} 篇精选论文"},
+            "template": HEADER_TEMPLATE,
+        },
+        "elements": elements,
+    }
+
+
+# --------- transports --------------------------------------------------------
+
+def feishu_sign(secret: str, ts: int) -> str:
+    key = f"{ts}\n{secret}".encode("utf-8")
+    digest = hmac.new(key, b"", digestmod=hashlib.sha256).digest()
+    return base64.b64encode(digest).decode("utf-8")
+
+
+def send_via_webhook(card_body: dict, webhook: str) -> None:
+    body: dict = {"msg_type": "interactive", "card": card_body}
+    if FEISHU_SECRET:
+        ts = int(time.time())
+        body["timestamp"] = str(ts)
+        body["sign"] = feishu_sign(FEISHU_SECRET, ts)
+    with httpx.Client(timeout=15.0) as cli:
+        r = cli.post(webhook, json=body)
+    try:
+        data = r.json()
+    except Exception:
+        data = {"_raw": r.text[:300]}
+    if r.status_code >= 400 or data.get("code") not in (0, None):
+        raise RuntimeError(f"webhook failed: HTTP {r.status_code} {data}")
+    log.info("webhook push ok -> %s", webhook[-12:])
+
+
+_token_cache: dict = {"token": "", "expire_at": 0.0}
+
+
+def get_tenant_access_token() -> str:
+    now = time.time()
+    if _token_cache["token"] and now < _token_cache["expire_at"] - 60:
+        return _token_cache["token"]
+    url = f"{FEISHU_OPEN_HOST}/open-apis/auth/v3/tenant_access_token/internal"
+    with httpx.Client(timeout=15.0) as cli:
+        r = cli.post(url, json={"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET})
+        r.raise_for_status()
+        data = r.json()
+    if data.get("code") != 0:
+        raise RuntimeError(f"tenant_access_token error: {data}")
+    _token_cache["token"] = data["tenant_access_token"]
+    _token_cache["expire_at"] = now + int(data.get("expire", 7200))
+    return _token_cache["token"]
+
+
+def send_via_im_api(card_body: dict, chat_id: str) -> None:
+    token = get_tenant_access_token()
+    url = (f"{FEISHU_OPEN_HOST}/open-apis/im/v1/messages"
+           f"?receive_id_type={FEISHU_RECEIVE_ID_TYPE}")
+    payload = {
+        "receive_id": chat_id,
+        "msg_type": "interactive",
+        "content": json.dumps(card_body, ensure_ascii=False),
+    }
+    with httpx.Client(timeout=15.0) as cli:
+        r = cli.post(url, json=payload, headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json; charset=utf-8",
+        })
+    try:
+        data = r.json()
+    except Exception:
+        data = {"_raw": r.text[:500]}
+    if r.status_code >= 400 or data.get("code") not in (0, None):
+        raise RuntimeError(
+            f"im/v1/messages failed: HTTP {r.status_code} code={data.get('code')} "
+            f"msg={data.get('msg')!r} (receive_id={chat_id!r} "
+            f"type={FEISHU_RECEIVE_ID_TYPE!r}) full={data}")
+    msg_id = (data.get("data") or {}).get("message_id", "?")
+    log.info("im-api push ok -> chat=%s msg=%s", chat_id, msg_id)
+
+
+def dispatch(card_body: dict) -> None:
+    """Fan the card out to every configured target. One target failing logs
+    but does not stop the others."""
+    sent = 0
+    errors: list[str] = []
+
+    if have_im_api_creds():
+        for cid in _split(FEISHU_CHAT_ID):
+            try:
+                send_via_im_api(card_body, cid)
+                sent += 1
+            except Exception as exc:
+                errors.append(f"chat {cid}: {exc}")
+    elif FEISHU_WEBHOOK:
+        for wh in _split(FEISHU_WEBHOOK):
+            try:
+                send_via_webhook(card_body, wh)
+                sent += 1
+            except Exception as exc:
+                errors.append(f"webhook …{wh[-12:]}: {exc}")
+    else:
+        log.warning("no feishu transport configured — skipping push")
         return
 
-    chunks = [papers[i:i + PAPERS_PER_CARD] for i in range(0, len(papers), PAPERS_PER_CARD)]
-    for i, chunk in enumerate(chunks):
-        dispatch(build_card_body(chunk, i, len(chunks)))
-        if i < len(chunks) - 1:
-            time.sleep(1)
-    log.info("pushed %d papers in %d card(s) via %s",
-             len(papers), len(chunks),
-             "im-api" if have_im_api_creds() else "webhook" if FEISHU_WEBHOOK else "none")
+    log.info("feishu: %d sent, %d failed", sent, len(errors))
+    if errors:
+        # surface but don't crash the (already non-fatal) step
+        for e in errors:
+            log.error("feishu target failed: %s", e)
+        if sent == 0:
+            raise RuntimeError(f"all {len(errors)} feishu target(s) failed; "
+                               f"first: {errors[0]}")
+
+
+def main():
+    news = load_today_news()
+    papers = load_today_papers()
+    if not news and not papers:
+        log.info("no news and no papers today")
+        if env_str("PUSH_EMPTY_DAY", "0") == "1":
+            dispatch(build_card_body([], []))
+        return
+    dispatch(build_card_body(news, papers))
+    log.info("pushed combined card: %d news + %d papers",
+             min(len(news), NEWS_IN_CARD), min(len(papers), PAPERS_IN_CARD))
 
 
 if __name__ == "__main__":
