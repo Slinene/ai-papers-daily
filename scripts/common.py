@@ -43,6 +43,54 @@ def env_int(key: str, default: int) -> int:
         return default
 
 
+def env_float(key: str, default: float) -> float:
+    v = os.environ.get(key)
+    if v is None or not v.strip():
+        return default
+    try:
+        return float(v.strip())
+    except ValueError:
+        return default
+
+
+# --- LLM usage accounting ---------------------------------------------------
+# Pipeline scripts run as separate processes (process.py -> process_news.py ->
+# push_feishu.py), so token usage is accumulated in a JSON file the final
+# notify step reads. Runs are sequential, so plain read-modify-write is safe.
+
+USAGE_FILE = CACHE_DIR / "usage.json"
+
+
+def reset_usage() -> None:
+    if USAGE_FILE.exists():
+        USAGE_FILE.unlink()
+
+
+def add_usage(model: str, usage) -> None:
+    """Accumulate per-model token usage. `usage` is the OpenAI SDK usage
+    object (DeepSeek adds prompt_cache_hit_tokens). Best-effort: never raise."""
+    try:
+        if usage is None:
+            return
+        u = usage.model_dump() if hasattr(usage, "model_dump") else dict(usage)
+        data = {}
+        if USAGE_FILE.exists():
+            try:
+                data = json.loads(USAGE_FILE.read_text(encoding="utf-8"))
+            except Exception:
+                data = {}
+        m = data.setdefault(model, {"prompt_tokens": 0, "completion_tokens": 0,
+                                    "cache_hit_tokens": 0, "calls": 0})
+        m["prompt_tokens"] += int(u.get("prompt_tokens") or 0)
+        m["completion_tokens"] += int(u.get("completion_tokens") or 0)
+        m["cache_hit_tokens"] += int(u.get("prompt_cache_hit_tokens") or 0)
+        m["calls"] += 1
+        USAGE_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2),
+                              encoding="utf-8")
+    except Exception as exc:  # accounting must never break the pipeline
+        log.warning("add_usage failed (%s): %s", model, exc)
+
+
 log = logging.getLogger("agent")
 if not log.handlers:
     h = logging.StreamHandler()

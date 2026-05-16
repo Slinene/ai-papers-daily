@@ -27,7 +27,16 @@ import re
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field, ValidationError
 
-from common import CACHE_DIR, env_int, env_str, log, now_iso_date, read_json, write_json
+from common import (
+    CACHE_DIR,
+    add_usage,
+    env_int,
+    env_str,
+    log,
+    now_iso_date,
+    read_json,
+    write_json,
+)
 
 DEEPSEEK_API_KEY = env_str("DEEPSEEK_API_KEY")
 if not DEEPSEEK_API_KEY:
@@ -177,6 +186,7 @@ def cluster_and_summarize(items: list[dict]) -> ClusterOutput | None:
         except OpenAIError as exc:
             log.warning("news cluster api error attempt=%d: %s", attempt, exc)
             return None
+        add_usage(DEEPSEEK_MODEL, getattr(resp, "usage", None))
         text = (resp.choices[0].message.content or "").strip()
         try:
             return ClusterOutput.model_validate_json(text)

@@ -27,7 +27,16 @@ from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, Field, ValidationError
 from pypdf import PdfReader
 
-from common import CACHE_DIR, env_int, env_str, log, read_json, write_json
+from common import (
+    CACHE_DIR,
+    add_usage,
+    env_int,
+    env_str,
+    log,
+    read_json,
+    reset_usage,
+    write_json,
+)
 
 DEEPSEEK_API_KEY = env_str("DEEPSEEK_API_KEY")
 if not DEEPSEEK_API_KEY:
@@ -164,6 +173,7 @@ def _call_json(
         except OpenAIError as exc:
             log.warning("[%s] api error attempt=%d: %s", label, attempt, exc)
             return None
+        add_usage(model, getattr(resp, "usage", None))
         text = (resp.choices[0].message.content or "").strip()
         try:
             return schema.model_validate_json(text)
@@ -268,6 +278,7 @@ def summarize_with_pdf(paper: dict) -> Summary | None:
 
 
 def main():
+    reset_usage()  # first LLM stage of the pipeline — start the cost tally fresh
     raws = read_json(CACHE_DIR / "raw_papers.json") or []
     log.info("processing %d raw papers via %s @ %s",
              len(raws), DEEPSEEK_MODEL, DEEPSEEK_BASE_URL)

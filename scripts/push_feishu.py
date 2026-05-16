@@ -22,7 +22,15 @@ import time
 import httpx
 import yaml
 
-from common import CACHE_DIR, PAPERS_DIR, env_str, log, now_iso_date, read_json
+from common import (
+    CACHE_DIR,
+    PAPERS_DIR,
+    env_float,
+    env_str,
+    log,
+    now_iso_date,
+    read_json,
+)
 
 # Mode A
 FEISHU_WEBHOOK = env_str("FEISHU_WEBHOOK")
@@ -71,6 +79,28 @@ def _src_label(s: str) -> str:
 
 
 # --------- data loaders ------------------------------------------------------
+
+def estimate_cost_cny() -> tuple[float, int]:
+    """Approximate this run's DeepSeek spend in RMB from .cache/usage.json.
+    Rates are 元 / 1M tokens, env-configurable (DeepSeek V4 pricing changes;
+    tune PRICE_* repo vars to match your real bill). Returns (cny, tokens)."""
+    usage = read_json(CACHE_DIR / "usage.json") or {}
+    rates = {
+        "pro":   (env_float("PRICE_PRO_IN", 2.0),   env_float("PRICE_PRO_OUT", 8.0)),
+        "flash": (env_float("PRICE_FLASH_IN", 0.5), env_float("PRICE_FLASH_OUT", 2.0)),
+    }
+    total = 0.0
+    tokens = 0
+    for model, u in usage.items():
+        tier = "flash" if "flash" in (model or "").lower() else "pro"
+        in_rate, out_rate = rates[tier]
+        pin = int(u.get("prompt_tokens") or 0)
+        pout = int(u.get("completion_tokens") or 0)
+        total += pin / 1_000_000 * in_rate
+        total += pout / 1_000_000 * out_rate
+        tokens += pin + pout
+    return total, tokens
+
 
 def load_today_news() -> list[dict]:
     d = read_json(CACHE_DIR / "processed_news.json") or {}
@@ -164,14 +194,18 @@ def build_card_body(news: list[dict], papers: list[dict]) -> dict:
             "content": "今日没有新内容进入榜单。",
         })
 
-    # ---- footer with site link ----
+    # ---- footer: site link + this run's LLM cost ----
+    cost_cny, tok = estimate_cost_cny()
+    cost_line = ""
+    if tok > 0:
+        cost_line = f"   ·   💰 本次消息耗费 ≈ ¥{cost_cny:.3f}（{tok:,} tokens，估算）"
     elements.append({"tag": "hr"})
     elements.append({
         "tag": "note",
         "elements": [{
             "tag": "lark_md",
             "content": f"🔗 [打开完整站点 · 论文沉淀 · 历史归档]({SITE_BASE}/)"
-                       f"   ·   每日 09:00 由 AI agent 自动汇编",
+                       f"   ·   每日 09:00 由 AI agent 自动汇编{cost_line}",
         }],
     })
 
