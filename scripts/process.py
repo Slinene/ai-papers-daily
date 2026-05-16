@@ -63,50 +63,52 @@ client = OpenAI(
     max_retries=2,
 )
 
-RELEVANCE_SYSTEM = """你是一位 AI 论文领域专家。根据论文标题和摘要给一个 0-10 的相关性分数。
+RELEVANCE_SYSTEM = """你是一位 AI 论文领域专家。读者是一名 **AI 算法从业者**，专注：
+电商场景 AI / Agent 多智体优化 / 用 Agent 优化电商链路 / 生成式推荐。
+他看论文是为了**找能迁移进业务、提升工作效率的方法**，不是学术兴趣。
 
-读者最关心的子方向（10 分必读）：
-- 推荐系统 × LLM 交叉：
-  * Generative Recommendation（生成式推荐 / next-item generation）
-  * Semantic ID / Token-based RecSys / RQ-VAE for items
-  * Agentic Recommendation（推荐场景里的 LLM Agent / planning / tool-use）
-  * LLM4Rec / LLM-as-Ranker / LLM-as-Reranker / Cold-start with LLM
-  * User Simulation 用 LLM 模拟用户 / RL-from-LLM-feedback
-  * 多模态 / 多兴趣 / 序列推荐 中用 LLM
+按对这个读者的实用价值打 0-10 分。
+
+10 分必读（直接命中其业务）：
+- 生成式推荐 Generative Recommendation / Semantic ID / RQ-VAE for items / LLM4Rec
+- Agentic Recommendation（推荐/搜索/营销场景里的 LLM Agent、planning、tool-use）
+- 电商场景 AI（搜推广、用户建模、营销、履约、商品理解）+ LLM/Agent
+- Multi-Agent 优化 / 协作 / self-evolution，且方法可迁移到推荐或电商
+- LLM-as-Ranker / Reranker / Cold-start / User Simulation 用于推荐
+
+8-9 分核心：
+- 通用 Agent / Tool-use / Memory / Planning（方法可借鉴到上面场景）
 - 大语言模型核心：训练 / 对齐 / 推理 / Long-context / MoE / Distill / 量化
-
-8-9 分核心方向：
-- Agent / Tool-use / Memory / Planning（通用 Agent，非推荐场景）
 - RAG / Retrieval / Reasoning（通用）
-- 评估、可靠性、效率（system-level）
-- 经典推荐系统 / 排序 / 召回（不含 LLM）但有显著创新
+- 经典推荐 / 排序 / 召回有显著创新
 
-6-7 分相关：
-- AI/ML 其他主流方向；视觉/语音如不结合 LLM 通常封顶 6
-- 偏工程或增量
+6-7 分：AI/ML 其他主流方向；视觉/语音不结合 LLM 封顶 6
+3-5 分：沾边非主流；0-2 分：与读者业务无关
 
-3-5 分：沾边但非主流方向
-0-2 分：与读者方向无关
+只输出 JSON：
+{"score": <0-10 整数>, "reasoning": "<不超过 120 字，点明对电商/Agent/生成式推荐业务的价值>"}"""
 
-只输出 JSON，结构：
-{"score": <0-10 整数>, "reasoning": "<不超过 120 字的中文一句话理由>"}"""
-
-SUMMARY_SYSTEM = """你是一位 AI 论文解读专家，为读者撰写中文论文卡片。
+SUMMARY_SYSTEM = """你是一位 AI 论文解读专家。读者是 **专注电商 / Agent 多智体优化 / 生成式推荐的 AI 算法从业者**，
+看论文是为了把有用的东西迁移进业务。为他写一张中文论文卡片。
 
 风格要求：
-- 直接、信息密度高，不要套话
-- 术语保留英文（如 LoRA、RAG、KV cache、MoE）
+- 直接、信息密度高，不要套话；术语保留英文（LoRA、RAG、KV cache、MoE、Semantic ID）
 - 不重复原标题；不要"本文提出了 / 本研究表明"
-- summary_md 用 markdown，结构：动机 → 方法关键点 → 关键结果数字
+- summary_md 用 markdown：动机 → 方法关键点 → 关键结果数字
+- practical_value 是重点：站在电商/推荐/Agent 从业者角度，写 2-4 条
+  「可以怎么借鉴到工作里」——具体到方法 trick、架构选择、工程实现、能复用的结论；
+  没有可迁移价值就直说"主要是学术贡献，业务可借鉴点有限"
 
 只输出 JSON，结构：
 {
-  "title_zh":     "<论文标题的中文翻译，简洁，<= 50 字>",
-  "one_liner":    "<一句话核心贡献，<= 60 字，不带句号>",
-  "category":     "<单选: LLM | RecSys | Agent | RAG | Eval | Training | Multimodal | Reasoning | Other>",
-  "tags":         ["<3-6 个英文标签，如 RecSys、LLM、MoE、RAG、Distill、RLHF、Eval>"],
-  "affiliations": ["<作者所属机构，最多 5 个，例如 MIT、Google DeepMind、Anthropic、清华大学；abstract 模式下若无法确认则留空数组 []>"],
-  "summary_md":   "<markdown 正文>"
+  "title_zh":       "<论文标题的中文翻译，简洁，<= 50 字>",
+  "one_liner":      "<一句话核心贡献，<= 60 字，不带句号>",
+  "category":       "<单选: GenRec | RecSys | Agent | MultiAgent | LLM | RAG | Eval | Training | Multimodal | Reasoning | Other>",
+  "direction":      "<一句话方向归属，<= 24 字，例如 '生成式推荐 · Semantic ID' 或 'Agent 多智体协作优化'>",
+  "tags":           ["<3-6 个英文标签>"],
+  "affiliations":   ["<作者机构，最多 5 个；abstract 模式无法确认则 []>"],
+  "practical_value":"<markdown，2-4 条 '- ' 列表，面向电商/Agent/生成式推荐从业者的可借鉴点>",
+  "summary_md":     "<markdown 正文：动机/方法/结果>"
 }"""
 
 
@@ -119,8 +121,10 @@ class Summary(BaseModel):
     title_zh: str
     one_liner: str = Field(max_length=120)
     category: str
+    direction: str = Field(default="", max_length=60)
     tags: list[str] = Field(min_length=1, max_length=8)
     affiliations: list[str] = Field(default_factory=list, max_length=8)
+    practical_value: str = Field(default="")
     summary_md: str
 
 
@@ -331,8 +335,10 @@ def main():
             "pdf_url": p.get("pdf_url"),
             "published": (p.get("published") or "")[:10],
             "category": summary.category or "Other",
+            "direction": summary.direction or "",
             "tags": summary.tags or [],
             "one_liner": summary.one_liner,
+            "practical_value": summary.practical_value or "",
             "summary_md": summary.summary_md,
             "score": p["_score"],
             "source": p.get("source", ""),

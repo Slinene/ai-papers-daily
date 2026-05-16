@@ -65,7 +65,7 @@ const categories = new Set(papers.map(p => p.data.category));
 <BaseLayout title="AI Papers Daily">
   {total === 0 ? (
     <div class="empty">
-      还没有论文落库。等明天 agent 第一次跑完就会有了。
+      还没有论文落库。明天首次更新后就会有了。
       <br/>本地手动跑：<code>python scripts/run_all.py</code>
     </div>
   ) : (

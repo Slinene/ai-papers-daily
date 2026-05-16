@@ -13,8 +13,10 @@ const papers = defineCollection({
     published: z.coerce.date(),
     collected: z.coerce.date(),
     category: z.string(),
+    direction: z.string().optional(),       // 一句话方向归属
     tags: z.array(z.string()).default([]),
     one_liner: z.string(),
+    practical_value: z.string().optional(), // markdown：对从业者的可借鉴点
     score: z.number().min(0).max(10),
     source: z.string(),
     depth: z.enum(['abstract', 'full_pdf']).default('abstract'),

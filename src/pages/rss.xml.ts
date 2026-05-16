@@ -8,7 +8,7 @@ export async function GET(context: APIContext) {
   );
   return rss({
     title: 'AI Papers Daily',
-    description: 'Daily AI / RecSys papers, summarized by an agent.',
+    description: '每日 AI / 电商 / 推荐系统 / Agent 论文精选',
     site: context.site ?? 'https://example.github.io',
     items: papers.slice(0, 50).map(p => ({
       title: p.data.title,

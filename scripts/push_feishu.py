@@ -17,6 +17,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 import time
 
 import httpx
@@ -177,15 +178,23 @@ def build_card_body(news: list[dict], papers: list[dict]) -> dict:
             site_url = f"{SITE_BASE}/paper/{slug}" if slug else SITE_BASE
             star = " ⭐" if p.get("depth") == "full_pdf" else ""
             cat = p.get("category", "")
+            direction = (p.get("direction") or cat).strip()
             score = int(p.get("score", 0))
             tags = p.get("tags") or []
             chips = "  ".join(f"`{x}`" for x in tags[:3])
             one = _clip(p.get("one_liner", ""), 90)
             head = f"**{i}. [{title}]({site_url})**{star}"
-            meta = f"`{cat}` · {score}/10 · {chips}" if chips else f"`{cat}` · {score}/10"
+            dirline = f"🧭 {direction}  ·  {score}/10"
+            # top 2 actionable points, clipped
+            pv = p.get("practical_value") or ""
+            pv_pts = [
+                _clip(re.sub(r"^\s*[-*•]\s*", "", ln).replace("**", "").replace("`", ""), 60)
+                for ln in pv.splitlines() if ln.strip()
+            ][:2]
+            pv_block = ("\n" + "\n".join(f"　▸ {x}" for x in pv_pts)) if pv_pts else ""
             elements.append({
                 "tag": "markdown",
-                "content": f"{head}\n{one}\n{meta}",
+                "content": f"{head}\n{dirline}\n{one}{pv_block}\n{chips}",
             })
 
     if not elements:
@@ -205,7 +214,7 @@ def build_card_body(news: list[dict], papers: list[dict]) -> dict:
         "elements": [{
             "tag": "lark_md",
             "content": f"🔗 [打开完整站点 · 论文沉淀 · 历史归档]({SITE_BASE}/)"
-                       f"   ·   每日 09:00 由 AI agent 自动汇编{cost_line}",
+                       f"   ·   每日 09:00 自动更新{cost_line}",
         }],
     })
 

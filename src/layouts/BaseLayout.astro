@@ -7,7 +7,7 @@ interface Props {
   description?: string;
 }
 
-const { title = 'AI Papers Daily', description = '每日 AI / 推荐系统论文精选，由 agent 自动汇编。' } = Astro.props;
+const { title = 'AI Papers Daily', description = '每日 AI / 电商 / 推荐系统 / Agent 论文与行业动态精选。' } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const pathname = Astro.url?.pathname?.replace(/\/$/, '') || '';
 const isActive = (p: string) => pathname === `${base}${p}`.replace(/\/$/, '');
@@ -34,7 +34,7 @@ const isActive = (p: string) => pathname === `${base}${p}`.replace(/\/$/, '');
           </a>
           <div>
             <h1 class="site-title"><a href={`${base}/`}>AI Papers Daily</a></h1>
-            <p class="site-tagline">每日 AI / 推荐系统论文精选 · agent 自动汇编</p>
+            <p class="site-tagline">每日 AI / 电商 / 推荐系统 / Agent 论文精选</p>
           </div>
         </div>
         <nav class="nav">
@@ -43,8 +43,6 @@ const isActive = (p: string) => pathname === `${base}${p}`.replace(/\/$/, '');
           <a href={`${base}/archive`} class={isActive('/archive') ? 'active' : ''}>归档</a>
           <a href={`${base}/categories`} class={isActive('/categories') ? 'active' : ''}>分类</a>
           <a href={`${base}/tags`} class={isActive('/tags') ? 'active' : ''}>标签</a>
-          <span class="sep">·</span>
-          <a href={`${base}/rss.xml`} class="ext">RSS</a>
         </nav>
       </div>
     </header>
@@ -57,7 +55,7 @@ const isActive = (p: string) => pathname === `${base}${p}`.replace(/\/$/, '');
     <footer>
       <slot name="footer" />
       <div>
-        Built by an agent · Powered by <a href="https://astro.build" target="_blank" rel="noopener">Astro</a> & DeepSeek
+        Powered by <a href="https://astro.build" target="_blank" rel="noopener">Astro</a> & DeepSeek
       </div>
     </footer>
   </body>

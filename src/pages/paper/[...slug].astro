@@ -12,6 +12,13 @@ const { Content } = await paper.render();
 const data = paper.data;
 const published = data.published.toISOString().slice(0, 10);
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const direction = (data.direction || '').trim();
+const affiliations = (data.affiliations || []).slice(0, 6);
+const stripMd = (s) => s.replace(/\*\*/g, '').replace(/`/g, '').trim();
+const pvLines = (data.practical_value || '')
+  .split('\n')
+  .map((l) => stripMd(l.replace(/^\s*[-*•]\s*/, '')))
+  .filter((l) => l.length > 0);
 ---
 <BaseLayout title={data.title} description={data.one_liner}>
   <article class="detail">
@@ -21,9 +28,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       <time datetime={published}>{published}</time>
       <span class="sep">|</span>
       arXiv:<a href={data.url} target="_blank" rel="noopener">{data.arxiv_id}</a>
-      {data.score >= 8 && <><span class="sep">|</span><span>★ deep</span></>}
+      {data.depth === 'full_pdf' && <><span class="sep">|</span><span>★ 深度解读</span></>}
     </div>
     <h1>{data.title}</h1>
+    {data.title_zh && <p class="title-zh">{data.title_zh}</p>}
+    <div class="dir-row">
+      <span class="direction-chip">🧭 {direction || data.category}</span>
+    </div>
+    {affiliations.length > 0 && (
+      <p class="affiliations">{affiliations.join(' · ')}</p>
+    )}
     {data.authors.length > 0 && (
       <div class="meta">{data.authors.slice(0, 6).join(', ')}{data.authors.length > 6 ? ' 等' : ''}</div>
     )}
@@ -33,6 +47,14 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
         <a class="tag" href={`${base}/tag/${t}`}>{t}</a>
       ))}
     </div>
+    {pvLines.length > 0 && (
+      <div class="pv-block">
+        <h3>📌 工作参考价值</h3>
+        <ul>
+          {pvLines.map((l) => <li>{l}</li>)}
+        </ul>
+      </div>
+    )}
     <div class="content">
       <Content />
     </div>

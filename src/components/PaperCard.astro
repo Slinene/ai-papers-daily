@@ -4,7 +4,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 interface Props {
   paper: CollectionEntry<'papers'>;
-  featured?: boolean;  // larger card layout for "today's pick"
+  featured?: boolean;
 }
 const { paper, featured = false } = Astro.props;
 const { data, slug } = paper;
@@ -13,51 +13,52 @@ const sourceLabel = data.source.startsWith('arxiv-')
   ? data.source.replace('arxiv-', '')
   : data.source === 'huggingface-daily' ? 'HF Daily' : data.source;
 const affiliations = (data.affiliations || []).slice(0, 5);
+const direction = (data.direction || '').trim();
+
+// practical_value is "- " bullet markdown; parse to clean lines for a <ul>.
+const stripMd = (s: string) => s.replace(/\*\*/g, '').replace(/`/g, '').trim();
+const pvLines = (data.practical_value || '')
+  .split('\n')
+  .map((l: string) => stripMd(l.replace(/^\s*[-*•]\s*/, '')))
+  .filter((l: string) => l.length > 0);
 ---
-{featured ? (
-  <article class="featured">
-    <h2><a href={`${base}/paper/${slug}`}>{data.title}</a></h2>
-    {data.title_zh && <p class="title-zh">{data.title_zh}</p>}
-    {affiliations.length > 0 && (
-      <p class="affiliations">{affiliations.join(' · ')}</p>
-    )}
-    <p class="summary">{data.one_liner}</p>
-    <div class="meta">
-      <a href={`${base}/category/${data.category}`}>{data.category}</a>
-      <span class="sep">|</span>
-      <time datetime={published}>{published}</time>
-      <span class="sep">|</span>
-      <span>{sourceLabel}</span>
-      <span class="sep">|</span>
-      <span class="badge badge-score">score {data.score}/10</span>
-      {data.depth === 'full_pdf' && <span class="badge badge-deep">★ deep read</span>}
-    </div>
-    <div class="tags">
-      {data.tags.map((t: string) => (
-        <a class="tag" href={`${base}/tag/${t}`}>{t}</a>
-      ))}
-    </div>
-  </article>
-) : (
-  <article class="paper-card">
-    <h2><a href={`${base}/paper/${slug}`}>{data.title}</a></h2>
-    {data.title_zh && <p class="title-zh">{data.title_zh}</p>}
-    <div class="meta">
-      <a href={`${base}/category/${data.category}`}>{data.category}</a>
-      <span class="sep">|</span>
-      <time datetime={published}>{published}</time>
-      <span class="sep">|</span>
-      <span class="badge badge-score">score {data.score}/10</span>
-      {data.depth === 'full_pdf' && <span class="badge badge-deep">★ deep</span>}
-    </div>
-    {affiliations.length > 0 && (
-      <p class="affiliations">{affiliations.join(' · ')}</p>
-    )}
-    <p class="summary">{data.one_liner}</p>
-    <div class="tags">
-      {data.tags.map((t: string) => (
-        <a class="tag" href={`${base}/tag/${t}`}>{t}</a>
-      ))}
-    </div>
-  </article>
-)}
+<article class={featured ? 'featured' : 'paper-card'}>
+  <h2><a href={`${base}/paper/${slug}`}>{data.title}</a></h2>
+  {data.title_zh && <p class="title-zh">{data.title_zh}</p>}
+
+  <div class="dir-row">
+    <span class="direction-chip">🧭 {direction || data.category}</span>
+    {data.depth === 'full_pdf' && <span class="badge badge-deep">★ 深度解读</span>}
+  </div>
+
+  {affiliations.length > 0 && (
+    <p class="affiliations">{affiliations.join(' · ')}</p>
+  )}
+
+  <p class="summary">{data.one_liner}</p>
+
+  {pvLines.length > 0 && (
+    <details class="practical">
+      <summary>📌 工作参考价值（{pvLines.length} 点）</summary>
+      <ul>
+        {pvLines.map((l: string) => <li>{l}</li>)}
+      </ul>
+    </details>
+  )}
+
+  <div class="meta">
+    <a href={`${base}/category/${data.category}`}>{data.category}</a>
+    <span class="sep">|</span>
+    <time datetime={published}>{published}</time>
+    <span class="sep">|</span>
+    <span>{sourceLabel}</span>
+    <span class="sep">|</span>
+    <span class="badge badge-score">score {data.score}/10</span>
+  </div>
+
+  <div class="tags">
+    {data.tags.map((t: string) => (
+      <a class="tag" href={`${base}/tag/${t}`}>{t}</a>
+    ))}
+  </div>
+</article>

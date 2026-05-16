@@ -327,6 +327,88 @@ a:hover { text-decoration: underline; }
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
   line-height: 1.5;
 }
+
+/* direction attribution row */
+.dir-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 8px;
+}
+.direction-chip {
+  display: inline-block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border: 1px solid #f3e0c8;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  letter-spacing: 0.01em;
+}
+
+/* collapsible "工作参考价值" — collapsed by default to keep the list dense */
+details.practical {
+  margin: 8px 0 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+details.practical > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  user-select: none;
+}
+details.practical > summary::-webkit-details-marker { display: none; }
+details.practical > summary::before {
+  content: "▸ ";
+  color: var(--accent);
+}
+details.practical[open] > summary::before { content: "▾ "; }
+details.practical[open] > summary {
+  border-bottom: 1px solid var(--border-soft);
+}
+details.practical ul {
+  margin: 0;
+  padding: 10px 12px 12px 30px;
+}
+details.practical li {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--fg);
+  margin: 4px 0;
+}
+.featured details.practical { background: var(--bg-card); }
+
+/* detail page: always-expanded practical value */
+.pv-block {
+  border: 1px solid #f3e0c8;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 14px 18px 16px;
+  margin: 20px 0 24px;
+}
+.pv-block h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--accent-strong);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+}
+.pv-block ul { margin: 0; padding-left: 22px; }
+.pv-block li {
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--fg);
+  margin: 5px 0;
+}
 .affiliations {
   font-size: 12.5px;
   color: var(--fg-faint);

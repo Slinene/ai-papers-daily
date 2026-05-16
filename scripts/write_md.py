@@ -40,8 +40,10 @@ def render_one(p: dict) -> Path:
         "published": date,
         "collected": now_iso_date(),
         "category": p.get("category") or "Other",
+        "direction": p.get("direction") or "",
         "tags": p.get("tags") or [],
         "one_liner": p.get("one_liner", ""),
+        "practical_value": p.get("practical_value") or "",
         "score": int(p.get("score", 0)),
         "source": p.get("source", ""),
         "depth": p.get("depth", "abstract"),
@@ -53,6 +55,10 @@ def render_one(p: dict) -> Path:
         fm.pop("title_zh")
     if not fm["affiliations"]:
         fm.pop("affiliations")
+    if not fm["direction"]:
+        fm.pop("direction")
+    if not fm["practical_value"]:
+        fm.pop("practical_value")
 
     fm_yaml = yaml.safe_dump(
         fm, allow_unicode=True, sort_keys=False, default_flow_style=False
