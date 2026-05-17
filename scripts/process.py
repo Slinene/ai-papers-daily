@@ -51,8 +51,9 @@ DEEPSEEK_MODEL = env_str("DEEPSEEK_MODEL", "deepseek-v4-pro")
 DEEPSEEK_SCORE_MODEL = env_str("DEEPSEEK_SCORE_MODEL", "deepseek-v4-flash")
 DEEPSEEK_SUMMARY_MODEL = env_str("DEEPSEEK_SUMMARY_MODEL", DEEPSEEK_MODEL)
 
-MIN_SCORE_KEEP = env_int("MIN_SCORE_KEEP", 7)
+MIN_SCORE_KEEP = env_int("MIN_SCORE_KEEP", 6)
 MIN_SCORE_DEEP = env_int("MIN_SCORE_DEEP", 8)
+MIN_PAPERS_PER_DAY = env_int("MIN_PAPERS_PER_DAY", 5)   # backfill floor
 MAX_PAPERS_PER_DAY = env_int("MAX_PAPERS_PER_DAY", 30)
 PDF_TEXT_MAX_CHARS = env_int("PDF_TEXT_MAX_CHARS", 60000)
 
@@ -69,21 +70,27 @@ RELEVANCE_SYSTEM = """你是一位 AI 论文领域专家。读者是一名 **AI 
 
 按对这个读者的实用价值打 0-10 分。
 
-10 分必读（直接命中其业务）：
+注意：画像用来**排序倾斜**，不是把通用好论文一棍子打死。优质 LLM/Agent/ML
+论文即使不直接命中电商也值得读，给 7-8。只有真和 AI 无关才给低分。
+
+10 分（直接命中其业务，必读）：
 - 生成式推荐 Generative Recommendation / Semantic ID / RQ-VAE for items / LLM4Rec
 - Agentic Recommendation（推荐/搜索/营销场景里的 LLM Agent、planning、tool-use）
 - 电商场景 AI（搜推广、用户建模、营销、履约、商品理解）+ LLM/Agent
-- Multi-Agent 优化 / 协作 / self-evolution，且方法可迁移到推荐或电商
-- LLM-as-Ranker / Reranker / Cold-start / User Simulation 用于推荐
+- Multi-Agent 优化 / 协作 / self-evolution 且方法可迁移到推荐/电商
 
-8-9 分核心：
-- 通用 Agent / Tool-use / Memory / Planning（方法可借鉴到上面场景）
-- 大语言模型核心：训练 / 对齐 / 推理 / Long-context / MoE / Distill / 量化
-- RAG / Retrieval / Reasoning（通用）
-- 经典推荐 / 排序 / 召回有显著创新
+8-9 分（高质量，方法大概率可借鉴）：
+- 通用 Agent / Tool-use / Memory / Planning / Multi-Agent
+- 大语言模型核心：训练 / 对齐 / 推理 / Long-context / MoE / Distill / 量化 / RL
+- RAG / Retrieval / Reasoning
+- 经典推荐 / 排序 / 召回 / 用户建模有显著创新
 
-6-7 分：AI/ML 其他主流方向；视觉/语音不结合 LLM 封顶 6
-3-5 分：沾边非主流；0-2 分：与读者业务无关
+6-7 分（值得一看的主流 AI/ML 工作）：
+- 其他主流 LLM/ML 方向；评估/效率/可解释；偏工程或增量但扎实
+- 视觉/语音/多模态（不结合 LLM 时封顶 7）
+
+3-5 分：沾边、非主流、纯理论且业务无关
+0-2 分：与 AI 完全无关 / 纯水文
 
 只输出 JSON：
 {"score": <0-10 整数>, "reasoning": "<不超过 120 字，点明对电商/Agent/生成式推荐业务的价值>"}"""
@@ -287,24 +294,34 @@ def main():
     log.info("processing %d raw papers via %s @ %s",
              len(raws), DEEPSEEK_MODEL, DEEPSEEK_BASE_URL)
 
-    # Step 1: relevance scoring
-    scored: list[dict] = []
+    # Step 1: relevance scoring. The persona prompt biases ranking, but must
+    # NOT empty the daily digest on days arxiv has few e-comm/Agent/GenRec
+    # papers. So: score everything, prefer >= MIN_SCORE_KEEP, but always
+    # backfill up to MIN_PAPERS_PER_DAY from the next-best regardless of
+    # threshold. Cap at MAX_PAPERS_PER_DAY.
+    all_scored: list[dict] = []
     for p in raws:
         rel = score_relevance(p)
         if rel is None:
             continue
-        if rel.score < MIN_SCORE_KEEP:
-            continue
         p["_score"] = rel.score
         p["_score_reason"] = rel.reasoning
-        scored.append(p)
+        all_scored.append(p)
 
-    scored.sort(
+    all_scored.sort(
         key=lambda x: (x["_score"], x.get("hf_upvotes", 0)),
         reverse=True,
     )
-    scored = scored[:MAX_PAPERS_PER_DAY]
-    log.info("kept %d after relevance filter", len(scored))
+    above = [p for p in all_scored if p["_score"] >= MIN_SCORE_KEEP]
+    if len(above) >= MIN_PAPERS_PER_DAY:
+        scored = above[:MAX_PAPERS_PER_DAY]
+    else:
+        # not enough cleared the bar — take the top-ranked anyway so the
+        # digest is never paper-empty
+        scored = all_scored[:max(MIN_PAPERS_PER_DAY, len(above))][:MAX_PAPERS_PER_DAY]
+    log.info("scored %d, %d >= %d; kept %d (min=%d max=%d)",
+             len(all_scored), len(above), MIN_SCORE_KEEP, len(scored),
+             MIN_PAPERS_PER_DAY, MAX_PAPERS_PER_DAY)
 
     # Step 2: summarize. One bad paper must never abort the whole batch.
     processed: list[dict] = []
