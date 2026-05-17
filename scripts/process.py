@@ -113,7 +113,7 @@ SUMMARY_SYSTEM = """你是一位 AI 论文解读专家。读者是 **专注电�
   "category":       "<单选: GenRec | RecSys | Agent | MultiAgent | LLM | RAG | Eval | Training | Multimodal | Reasoning | Other>",
   "direction":      "<一句话方向归属，<= 24 字，例如 '生成式推荐 · Semantic ID' 或 'Agent 多智体协作优化'>",
   "tags":           ["<3-6 个英文标签>"],
-  "affiliations":   ["<作者机构，最多 5 个；abstract 模式无法确认则 []>"],
+  "affiliations":   ["<从提供的 PDF 首页文本提取作者所属机构，最多 5 个，去重；实在提取不到才 []>"],
   "practical_value":"<markdown，2-4 条 '- ' 列表，面向电商/Agent/生成式推荐从业者的可借鉴点>",
   "summary_md":     "<markdown 正文：动机/方法/结果>"
 }"""
@@ -209,12 +209,33 @@ def score_relevance(paper: dict) -> Relevance | None:
     )
 
 
+def _first_page_text(paper: dict) -> str:
+    """Cheap affiliation source: arXiv abstracts never include affiliations,
+    but PDF page 1 always has the author/affiliation block. Grab ~2.5k chars
+    (~page 1) only. Best-effort — empty string on any failure."""
+    url = paper.get("pdf_url")
+    if not url:
+        return ""
+    pdf = _fetch_pdf(url)
+    if not pdf:
+        return ""
+    return _extract_pdf_text(pdf, 2500)
+
+
 def summarize_abstract(paper: dict) -> Summary | None:
+    fp = _first_page_text(paper)
+    fp_block = (
+        f"\n\nPDF 首页文本（含作者单位，用于提取 affiliations）:\n"
+        f"-----\n{fp}\n-----\n"
+        if fp else "\n\n（无 PDF 首页，affiliations 提取不到则留空）"
+    )
     user = (
         f"标题: {paper['title']}\n"
         f"作者: {_short_authors(paper)}\n\n"
-        f"摘要:\n{paper['abstract']}\n\n"
+        f"摘要:\n{paper['abstract']}"
+        f"{fp_block}\n\n"
         f"请基于以上信息写卡片。summary_md 200-450 字。"
+        f"affiliations 请从「PDF 首页文本」里提取作者所属机构。"
     )
     return _call_json(
         SUMMARY_SYSTEM, user, Summary,
