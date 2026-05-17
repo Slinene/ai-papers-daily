@@ -215,18 +215,23 @@ def main():
         })
         return
 
-    # Stratified selection so Chinese RSS items (no points → all 0) don't get
-    # bulldozed out by HN/Reddit ranking.
-    #   * Chinese-source quota: take up to CN_QUOTA items in feed order
-    #   * Remaining slots: filled with top Western items by points
-    CN_QUOTA = env_int("NEWS_CN_QUOTA", 15)
-    chinese = [x for x in filtered if (x.get("source") or "").startswith("cn:")][:CN_QUOTA]
-    western = [x for x in filtered if not (x.get("source") or "").startswith("cn:")]
-    western.sort(key=lambda x: int(x.get("points") or 0), reverse=True)
-    western = western[: max(0, MAX_NEWS_ITEMS - len(chinese))]
-    filtered = chinese + western
-    log.info("post-stratify: %d cn + %d western = %d total",
-             len(chinese), len(western), len(filtered))
+    # Stratified selection. RSS sources (cn:* and blog:*) carry no points, so a
+    # plain points sort would bulldoze them under HN/Reddit. Give each a quota,
+    # then fill the rest with the highest-points HN/Reddit items.
+    CN_QUOTA = env_int("NEWS_CN_QUOTA", 14)
+    BLOG_QUOTA = env_int("NEWS_BLOG_QUOTA", 12)
+
+    def _is(prefix: str, x: dict) -> bool:
+        return (x.get("source") or "").startswith(prefix)
+
+    chinese = [x for x in filtered if _is("cn:", x)][:CN_QUOTA]
+    blog = [x for x in filtered if _is("blog:", x)][:BLOG_QUOTA]
+    rest = [x for x in filtered if not _is("cn:", x) and not _is("blog:", x)]
+    rest.sort(key=lambda x: int(x.get("points") or 0), reverse=True)
+    rest = rest[: max(0, MAX_NEWS_ITEMS - len(chinese) - len(blog))]
+    filtered = chinese + blog + rest
+    log.info("post-stratify: %d cn + %d blog + %d hn/reddit = %d total",
+             len(chinese), len(blog), len(rest), len(filtered))
 
     cluster = cluster_and_summarize(filtered)
     if cluster is None or not cluster.topics:

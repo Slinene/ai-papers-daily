@@ -62,6 +62,23 @@ CHINESE_FEEDS: list[tuple[str, str, bool]] = [
 CN_PER_FEED = env_int("NEWS_CN_PER_FEED", 20)
 CN_WINDOW_HOURS = env_int("NEWS_CN_WINDOW_HOURS", 48)
 
+# Industry / applied-ML blog RSS — high signal for an e-commerce / recsys /
+# agent practitioner (production write-ups + curated digests). All AI-focused
+# so they bypass the keyword gate. Blogs post infrequently → wider window.
+BLOG_FEEDS: list[tuple[str, str]] = [
+    ("amazon-science", "https://www.amazon.science/index.rss"),
+    ("eugeneyan",      "https://eugeneyan.com/rss/"),
+    ("netflix-tech",   "https://netflixtechblog.com/feed"),
+    ("spotify-eng",    "https://engineering.atspotify.com/feed/"),
+    ("hf-blog",        "https://huggingface.co/blog/feed.xml"),
+    ("smol-ai-news",   "https://news.smol.ai/rss.xml"),
+    ("import-ai",      "https://jack-clark.net/feed/"),
+    ("latent-space",   "https://www.latent.space/feed"),
+    ("lilian-weng",    "https://lilianweng.github.io/index.xml"),
+]
+BLOG_PER_FEED = env_int("NEWS_BLOG_PER_FEED", 8)
+BLOG_WINDOW_HOURS = env_int("NEWS_BLOG_WINDOW_HOURS", 168)  # 7 days
+
 
 @dataclass
 class NewsItem:
@@ -159,6 +176,46 @@ def fetch_chinese_feed(name: str, url: str, ai_focused: bool) -> list[NewsItem]:
     return out
 
 
+def fetch_blog_feed(name: str, url: str) -> list[NewsItem]:
+    log.info("fetching blog:%s", name)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=BLOG_WINDOW_HOURS)
+    try:
+        with httpx.Client(timeout=TIMEOUT, headers={"User-Agent": UA}, follow_redirects=True) as cli:
+            r = cli.get(url)
+            r.raise_for_status()
+            body = r.content
+    except Exception as exc:
+        log.warning("blog fetch failed %s: %s", name, exc)
+        return []
+    try:
+        feed = feedparser.parse(body)
+    except Exception as exc:
+        log.warning("blog parse failed %s: %s", name, exc)
+        return []
+    out: list[NewsItem] = []
+    for e in feed.entries[:BLOG_PER_FEED]:
+        title = (e.get("title") or "").strip()
+        link = e.get("link") or ""
+        if not title or not link:
+            continue
+        published = ""
+        if e.get("published_parsed"):
+            t = e["published_parsed"]
+            pub_dt = datetime(*t[:6], tzinfo=timezone.utc)
+            if pub_dt < cutoff:
+                continue
+            published = pub_dt.date().isoformat()
+        out.append(NewsItem(
+            title=title[:300],
+            url=link,
+            source=f"blog:{name}",
+            published=published,
+            snippet=_strip_html(e.get("summary", ""))[:400],
+            ai_focused=True,  # curated AI/ML blogs — skip keyword gate
+        ))
+    return out
+
+
 def fetch_reddit_sub(sub: str) -> list[NewsItem]:
     url = f"https://www.reddit.com/r/{sub}/.rss?limit={REDDIT_PER_SUB}"
     log.info("fetching reddit r/%s", sub)
@@ -220,6 +277,14 @@ def main():
              len(CHINESE_FEEDS), CN_PER_FEED, CN_WINDOW_HOURS)
     for name, url, ai_focused in CHINESE_FEEDS:
         for it in fetch_chinese_feed(name, url, ai_focused):
+            if it.url not in items:
+                items[it.url] = it
+        time.sleep(0.5)
+
+    log.info("Blog feeds: %d sources × %d each (window=%dh)",
+             len(BLOG_FEEDS), BLOG_PER_FEED, BLOG_WINDOW_HOURS)
+    for name, url in BLOG_FEEDS:
+        for it in fetch_blog_feed(name, url):
             if it.url not in items:
                 items[it.url] = it
         time.sleep(0.5)
