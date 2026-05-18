@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PaperCard from '../components/PaperCard.astro';
 import NewsTopic from '../components/NewsTopic.astro';
+import RepoCard from '../components/RepoCard.astro';
 
 export const prerender = true;
 
@@ -21,6 +22,13 @@ const latestNews = newsAll
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())[0];
 const newsDate = latestNews?.data.date.toISOString().slice(0, 10) || '';
 const newsTopics = latestNews?.data.topics || [];
+
+// Today's hot AI repos — most recent repos collection entry
+const reposAll = await getCollection('repos');
+const latestRepos = reposAll
+  .slice()
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())[0];
+const repoItems = latestRepos?.data.repos || [];
 
 // "Today" = most recent `collected` date present in the paper corpus.
 const collectedDates = papers.map(p => p.data.collected.toISOString().slice(0, 10));
@@ -70,17 +78,17 @@ const categories = new Set(papers.map(p => p.data.category));
     </div>
   ) : (
     <>
-      {(todayPapers.length > 0 || newsTopics.length > 0) && (
+      {(todayPapers.length > 0 || newsTopics.length > 0 || repoItems.length > 0) && (
         <section class="today-banner">
           <div>
             <p class="label">今日播报 · Daily Digest</p>
-            <h2>{bannerDate} · 论文 {todayPapers.length} 篇 · 新闻 {newsTopics.length} 条</h2>
+            <h2>{bannerDate} · 论文 {todayPapers.length} · 新闻 {newsTopics.length} · 项目 {repoItems.length}</h2>
           </div>
           <div class="stats">
             <div><strong>{todayPapers.length}</strong>论文</div>
             <div><strong>{newsTopics.length}</strong>新闻</div>
+            <div><strong>{repoItems.length}</strong>项目</div>
             <div><strong>{total}</strong>累计</div>
-            <div><strong>{deepCount}</strong>深度</div>
           </div>
         </section>
       )}
@@ -92,6 +100,15 @@ const categories = new Set(papers.map(p => p.data.category));
             {newsTopics.map(t => (
               <NewsTopic title={t.title} summary={t.summary} tags={t.tags} sources={t.sources} />
             ))}
+          </div>
+        </>
+      )}
+
+      {repoItems.length > 0 && (
+        <>
+          <h3 class="section-h">今日热门 AI 项目 · 共 {repoItems.length} 个</h3>
+          <div class="repo-grid">
+            {repoItems.map(r => <RepoCard repo={r} />)}
           </div>
         </>
       )}

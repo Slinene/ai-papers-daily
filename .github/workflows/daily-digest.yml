@@ -40,7 +40,10 @@ env:
   MAX_PAPERS_PER_DAY: ${{ vars.MAX_PAPERS_PER_DAY }}
   MIN_SCORE_KEEP:     ${{ vars.MIN_SCORE_KEEP }}
   MIN_SCORE_DEEP:     ${{ vars.MIN_SCORE_DEEP }}
+  MIN_PAPERS_PER_DAY: ${{ vars.MIN_PAPERS_PER_DAY }}
   PDF_TEXT_MAX_CHARS: ${{ vars.PDF_TEXT_MAX_CHARS }}
+  # built-in token (no setup needed) — for GitHub repo search / README
+  GITHUB_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
   PUSH_EMPTY_DAY:     ${{ github.event.inputs.push_empty_day || '0' }}
 
 jobs:
@@ -81,13 +84,23 @@ jobs:
         run: python scripts/process_news.py
       - name: Write news markdown
         run: python scripts/write_news_md.py
+      # repos: best-effort — a GitHub search rate-limit must not fail the run
+      - name: Fetch hot repos
+        continue-on-error: true
+        run: python scripts/fetch_repos.py
+      - name: Process repos
+        continue-on-error: true
+        run: python scripts/process_repos.py
+      - name: Write repos markdown
+        continue-on-error: true
+        run: python scripts/write_repos_md.py
 
       - name: Commit generated content
         run: |
           set -e
           git config user.name  "papers-agent[bot]"
           git config user.email "papers-agent@users.noreply.github.com"
-          git add src/content/papers/ src/content/news/ src/content/archive_papers/ 2>/dev/null || true
+          git add src/content/papers/ src/content/news/ src/content/archive_papers/ src/content/repos/ 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No new content to commit."
           else

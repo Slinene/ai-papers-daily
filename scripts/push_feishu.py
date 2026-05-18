@@ -49,6 +49,7 @@ SITE_BASE = f"{SITE_URL}/{BASE_PATH}" if BASE_PATH else SITE_URL
 
 # How many of each to show in the single card (keeps it scannable)
 NEWS_IN_CARD = 8
+REPOS_IN_CARD = 6
 PAPERS_IN_CARD = 6
 NEWS_SUMMARY_MAX = 76
 HEADER_TEMPLATE = env_str("FEISHU_CARD_TEMPLATE", "indigo")
@@ -108,6 +109,11 @@ def load_today_news() -> list[dict]:
     return d.get("topics") or []
 
 
+def load_today_repos() -> list[dict]:
+    d = read_json(CACHE_DIR / "processed_repos.json") or {}
+    return d.get("repos") or []
+
+
 def load_today_papers() -> list[dict]:
     summary = read_json(CACHE_DIR / "today_papers.json")
     if not summary:
@@ -133,9 +139,10 @@ def load_today_papers() -> list[dict]:
 
 # --------- the single combined card -----------------------------------------
 
-def build_card_body(news: list[dict], papers: list[dict]) -> dict:
+def build_card_body(news: list[dict], repos: list[dict], papers: list[dict]) -> dict:
     today = now_iso_date()
     news = news[:NEWS_IN_CARD]
+    repos = repos[:REPOS_IN_CARD]
     papers = papers[:PAPERS_IN_CARD]
 
     elements: list[dict] = []
@@ -163,9 +170,35 @@ def build_card_body(news: list[dict], papers: list[dict]) -> dict:
             body = f"{head}\n{summary}\n{chips}{srcline}"
             elements.append({"tag": "markdown", "content": body})
 
+    # ---- Hot repos section ----
+    if repos:
+        if news:
+            elements.append({"tag": "hr"})
+        elements.append({"tag": "markdown", "content": "**💻  今日热门 AI 项目**"})
+        elements.append({"tag": "hr"})
+        for i, r in enumerate(repos, 1):
+            name = r.get("name", "").strip()
+            url = r.get("url", f"https://github.com/{name}")
+            stars = int(r.get("stars") or 0)
+            star_s = f"{stars/1000:.1f}".rstrip("0").rstrip(".") + "k" if stars >= 1000 else str(stars)
+            one = _clip(r.get("one_liner", ""), 60)
+            tags = r.get("tags") or []
+            chips = "  ".join(f"`{x}`" for x in tags[:3])
+            # top borrow-value point
+            val = r.get("value") or ""
+            pts = [
+                _clip(re.sub(r"^\s*[-*•]\s*", "", ln).replace("**", "").replace("`", ""), 60)
+                for ln in val.splitlines() if ln.strip()
+            ][:2]
+            vblock = ("\n" + "\n".join(f"　▸ {x}" for x in pts)) if pts else ""
+            elements.append({
+                "tag": "markdown",
+                "content": f"**{i}. [{name}]({url})**  ★{star_s}\n{one}{vblock}\n{chips}",
+            })
+
     # ---- Papers section ----
     if papers:
-        if news:
+        if news or repos:
             elements.append({"tag": "hr"})
         elements.append({
             "tag": "markdown",
@@ -218,13 +251,12 @@ def build_card_body(news: list[dict], papers: list[dict]) -> dict:
         }],
     })
 
-    n_news, n_pap = len(news), len(papers)
     return {
         "config": {"wide_screen_mode": True},
         "header": {
             "title": {"tag": "plain_text", "content": f"📡 AI Radar Daily · {today}"},
             "subtitle": {"tag": "plain_text",
-                         "content": f"{n_news} 条行业动态 · {n_pap} 篇精选论文"},
+                         "content": f"{len(news)} 行业动态 · {len(repos)} 热门项目 · {len(papers)} 精选论文"},
             "template": HEADER_TEMPLATE,
         },
         "elements": elements,
@@ -338,15 +370,17 @@ def dispatch(card_body: dict) -> None:
 
 def main():
     news = load_today_news()
+    repos = load_today_repos()
     papers = load_today_papers()
-    if not news and not papers:
-        log.info("no news and no papers today")
+    if not news and not papers and not repos:
+        log.info("no news, repos or papers today")
         if env_str("PUSH_EMPTY_DAY", "0") == "1":
-            dispatch(build_card_body([], []))
+            dispatch(build_card_body([], [], []))
         return
-    dispatch(build_card_body(news, papers))
-    log.info("pushed combined card: %d news + %d papers",
-             min(len(news), NEWS_IN_CARD), min(len(papers), PAPERS_IN_CARD))
+    dispatch(build_card_body(news, repos, papers))
+    log.info("pushed combined card: %d news + %d repos + %d papers",
+             min(len(news), NEWS_IN_CARD), min(len(repos), REPOS_IN_CARD),
+             min(len(papers), PAPERS_IN_CARD))
 
 
 if __name__ == "__main__":

@@ -540,6 +540,60 @@ details.practical li {
   padding-left: 4px;
 }
 
+/* ===== Repo grid (今日热门 AI 项目) ===== */
+.repo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 8px;
+}
+@media (max-width: 640px) {
+  .repo-grid { grid-template-columns: 1fr; }
+}
+.repo-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.repo-card h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.repo-card h4 a { color: var(--fg-strong); }
+.repo-card h4 a:hover { color: var(--accent-strong); text-decoration: none; }
+.repo-star {
+  font-size: 12px;
+  color: var(--accent-strong);
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.repo-one {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fg-strong);
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+}
+.repo-cap {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--fg-muted);
+}
+
 /* ===== Featured (today's top paper) ===== */
 .featured {
   background: var(--bg-card);

@@ -73,4 +73,24 @@ const archive_papers = defineCollection({
   }),
 });
 
-export const collections = { papers, news, archive_papers };
+const repos = defineCollection({
+  type: 'content',
+  schema: z.object({
+    date: z.coerce.date(),
+    collected: z.coerce.date(),
+    repo_count: z.number().int(),
+    repos: z.array(z.object({
+      name: z.string(),            // owner/name
+      url: z.string().url(),
+      stars: z.number().int().default(0),
+      language: z.string().optional(),
+      topics: z.array(z.string()).default([]),
+      one_liner: z.string(),       // 一句话这个项目是干嘛的
+      capability: z.string(),      // 项目实现的能力（markdown，可多句）
+      value: z.string(),           // 对从业者的借鉴价值（markdown，'- ' 列表）
+      tags: z.array(z.string()).default([]),
+    })),
+  }),
+});
+
+export const collections = { papers, news, archive_papers, repos };

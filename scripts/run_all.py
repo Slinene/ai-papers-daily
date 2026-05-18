@@ -11,11 +11,14 @@ import sys
 from common import ROOT, log
 
 
-def step(label: str, script: str) -> None:
+def step(label: str, script: str, fatal: bool = True) -> None:
     log.info("===== %s =====", label)
     res = subprocess.run([sys.executable, f"scripts/{script}"], cwd=ROOT)
     if res.returncode != 0:
-        raise SystemExit(f"step {label} failed (exit {res.returncode})")
+        if fatal:
+            raise SystemExit(f"step {label} failed (exit {res.returncode})")
+        log.warning("step %s failed (exit %d) — non-fatal, continuing",
+                    label, res.returncode)
 
 
 def main():
@@ -25,6 +28,10 @@ def main():
     step("fetch news",        "fetch_news.py")
     step("process news",      "process_news.py")
     step("write news md",     "write_news_md.py")
+    # repos: best-effort — GitHub search rate-limits shouldn't kill the run
+    step("fetch repos",       "fetch_repos.py",   fatal=False)
+    step("process repos",     "process_repos.py", fatal=False)
+    step("write repos md",    "write_repos_md.py", fatal=False)
     step("push feishu",       "push_feishu.py")
     log.info("pipeline done")
 

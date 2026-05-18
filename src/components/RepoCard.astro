@@ -1,0 +1,47 @@
+---
+interface RepoData {
+  name: string;
+  url: string;
+  stars: number;
+  language?: string;
+  topics?: string[];
+  one_liner: string;
+  capability: string;
+  value: string;
+  tags?: string[];
+}
+interface Props { repo: RepoData }
+const { repo } = Astro.props;
+
+const stripMd = (s: string) => s.replace(/\*\*/g, '').replace(/`/g, '').trim();
+const valueLines = (repo.value || '')
+  .split('\n')
+  .map((l: string) => stripMd(l.replace(/^\s*[-*•]\s*/, '')))
+  .filter((l: string) => l.length > 0);
+const stars = repo.stars >= 1000
+  ? (repo.stars / 1000).toFixed(1).replace(/\.0$/, '') + 'k'
+  : String(repo.stars);
+const tags = repo.tags || [];
+---
+<article class="repo-card">
+  <h4>
+    <a href={repo.url} target="_blank" rel="noopener">{repo.name}</a>
+    <span class="repo-star">★ {stars}</span>
+  </h4>
+  <p class="repo-one">{repo.one_liner}</p>
+  {repo.capability && <p class="repo-cap">{stripMd(repo.capability)}</p>}
+  {tags.length > 0 && (
+    <div class="tags">
+      {repo.language && <span class="tag tag-static">{repo.language}</span>}
+      {tags.map((t: string) => <span class="tag tag-static">{t}</span>)}
+    </div>
+  )}
+  {valueLines.length > 0 && (
+    <details class="practical">
+      <summary>📌 借鉴价值（{valueLines.length} 点）</summary>
+      <ul>
+        {valueLines.map((l: string) => <li>{l}</li>)}
+      </ul>
+    </details>
+  )}
+</article>
