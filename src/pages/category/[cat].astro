@@ -11,15 +11,18 @@ export async function getStaticPaths() {
     if (!cats.has(c)) cats.set(c, [] as any);
     (cats.get(c) as any).push(p);
   }
-  return Array.from(cats.entries()).map(([cat, items]) => ({
-    params: { cat },
-    props: {
-      cat,
-      papers: items.sort(
-        (a: any, b: any) => b.data.published.valueOf() - a.data.published.valueOf()
-      ),
-    },
-  }));
+  // single path segment — skip categories with '/' or '\' (build-safety)
+  return Array.from(cats.entries())
+    .filter(([cat]) => cat && !/[\/\\]/.test(cat))
+    .map(([cat, items]) => ({
+      params: { cat },
+      props: {
+        cat,
+        papers: items.sort(
+          (a: any, b: any) => b.data.published.valueOf() - a.data.published.valueOf()
+        ),
+      },
+    }));
 }
 
 const { cat, papers } = Astro.props;

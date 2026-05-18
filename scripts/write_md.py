@@ -18,6 +18,7 @@ from common import (
     make_slug,
     now_iso_date,
     read_json,
+    safe_tags,
     write_json,
 )
 
@@ -41,7 +42,7 @@ def render_one(p: dict) -> Path:
         "collected": now_iso_date(),
         "category": p.get("category") or "Other",
         "direction": p.get("direction") or "",
-        "tags": p.get("tags") or [],
+        "tags": safe_tags(p.get("tags") or []),
         "one_liner": p.get("one_liner", ""),
         "practical_value": p.get("practical_value") or "",
         "score": int(p.get("score", 0)),

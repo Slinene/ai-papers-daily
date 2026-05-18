@@ -43,6 +43,20 @@ def env_int(key: str, default: int) -> int:
         return default
 
 
+def safe_tags(tags) -> list[str]:
+    """Tags become single URL path segments. '/' '\\' (LLMs emit e.g.
+    'AI/NLP') break Astro's [tag] route. Replace them, collapse whitespace,
+    dedupe, keep order."""
+    out: list[str] = []
+    for t in tags or []:
+        if not isinstance(t, str):
+            continue
+        s = re.sub(r"\s+", " ", t.replace("/", "-").replace("\\", "-")).strip().strip("-").strip()
+        if s and s not in out:
+            out.append(s)
+    return out
+
+
 def env_float(key: str, default: float) -> float:
     v = os.environ.get(key)
     if v is None or not v.strip():

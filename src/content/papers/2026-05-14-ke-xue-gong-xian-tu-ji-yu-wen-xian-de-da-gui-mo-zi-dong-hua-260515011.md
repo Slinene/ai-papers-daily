@@ -19,7 +19,7 @@ tags:
 - Technological Roadmapping
 - Prerequisite Prediction
 - Knowledge Graph
-- AI/NLP
+- AI-NLP
 - Automated Discovery
 one_liner: 构建200万条科学贡献和1250万条先决边的大规模图谱，并提出科学前提预测任务
 practical_value: '- **关系抽取与图谱构建自动化**：论文自动从文献抽取贡献并连接先决关系，可迁移到电商商品功能依赖图或产品迭代图谱构建，例如自动识别“某技术A的改进直接依赖于技术B”。

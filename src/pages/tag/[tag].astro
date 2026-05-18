@@ -12,15 +12,20 @@ export async function getStaticPaths() {
       (tags.get(t) as any).push(p);
     }
   }
-  return Array.from(tags.entries()).map(([tag, items]) => ({
-    params: { tag },
-    props: {
-      tag,
-      papers: items.sort(
-        (a: any, b: any) => b.data.published.valueOf() - a.data.published.valueOf()
-      ),
-    },
-  }));
+  // `[tag]` is a single path segment — a tag containing '/' or '\' (LLMs
+  // occasionally emit e.g. "AI/NLP") makes Astro fail the whole build with
+  // "Missing parameter: tag". Skip pathological tags defensively.
+  return Array.from(tags.entries())
+    .filter(([tag]) => tag && !/[\/\\]/.test(tag))
+    .map(([tag, items]) => ({
+      params: { tag },
+      props: {
+        tag,
+        papers: items.sort(
+          (a: any, b: any) => b.data.published.valueOf() - a.data.published.valueOf()
+        ),
+      },
+    }));
 }
 
 const { tag, papers } = Astro.props;

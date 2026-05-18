@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import yaml
 
-from common import CACHE_DIR, ROOT, log, now_iso_date, read_json
+from common import CACHE_DIR, ROOT, log, now_iso_date, read_json, safe_tags
 
 NEWS_DIR = ROOT / "src" / "content" / "news"
 NEWS_DIR.mkdir(parents=True, exist_ok=True)
@@ -23,6 +23,9 @@ def main():
     if not topics:
         log.info("no news topics to write")
         return
+
+    for t in topics:
+        t["tags"] = safe_tags(t.get("tags") or [])
 
     fm = {
         "date": date,
