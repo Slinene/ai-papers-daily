@@ -2,34 +2,63 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
 
-const papers = (await getCollection('papers')).sort(
-  (a, b) => b.data.published.valueOf() - a.data.published.valueOf()
-);
-const buckets = new Map<string, typeof papers>();
-for (const p of papers) {
-  const ym = p.data.published.toISOString().slice(0, 7);
-  if (!buckets.has(ym)) buckets.set(ym, [] as any);
-  (buckets.get(ym) as any).push(p);
-}
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+// Group by the date the paper entered the digest (collected), newest first —
+// matches the homepage "today" notion (one daily batch per day).
+const papers = (await getCollection('papers')).sort(
+  (a, b) => b.data.collected.valueOf() - a.data.collected.valueOf()
+);
+
+type Day = { date: string; items: typeof papers };
+const byDay = new Map<string, Day>();
+for (const p of papers) {
+  const d = p.data.collected.toISOString().slice(0, 10);
+  if (!byDay.has(d)) byDay.set(d, { date: d, items: [] as any });
+  (byDay.get(d) as any).items.push(p);
+}
+const days = Array.from(byDay.values()).sort((a, b) => b.date.localeCompare(a.date));
+
+// also tell each day how many got a deep PDF read, for the summary line
+const deepCount = (items: typeof papers) =>
+  items.filter((p: any) => p.data.depth === 'full_pdf').length;
 ---
 <BaseLayout title="归档 - AI Papers Daily">
-  <h2 style="margin: 4px 0 16px;">归档</h2>
-  {Array.from(buckets.entries()).map(([ym, items]) => (
-    <section style="margin-bottom: 28px;">
-      <h3 style="font-size:15px;color:var(--fg-muted);margin:14px 0 8px;">{ym} · {items.length} 篇</h3>
-      <ul class="paper-list" style="border-top:1px solid var(--border-soft);">
-        {items.map((p: any) => (
-          <li class="paper-card" style="padding:10px 0;">
-            <div style="display:flex;gap:10px;align-items:baseline;">
-              <span style="color:var(--fg-faint);font-size:13px;font-variant-numeric:tabular-nums;">
-                {p.data.published.toISOString().slice(5, 10)}
-              </span>
-              <a href={`${base}/paper/${p.slug}`} style="font-size:15px;color:var(--fg);">{p.data.title}</a>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </section>
-  ))}
+  <header class="collection-header">
+    <h2>归档</h2>
+    <p class="collection-tagline">
+      按日期归档，共 <strong>{papers.length}</strong> 篇 ·
+      <strong>{days.length}</strong> 天 · 点击某天展开当天全部
+    </p>
+  </header>
+
+  <div class="archive-days">
+    {days.map((day, i) => (
+      <details class="archive-day" open={i === 0}>
+        <summary>
+          <span class="ad-date">{day.date}</span>
+          <span class="ad-count">{day.items.length} 篇</span>
+          {deepCount(day.items) > 0 && (
+            <span class="ad-deep">★ {deepCount(day.items)} 深度</span>
+          )}
+        </summary>
+        <ul class="ad-list">
+          {day.items.map((p: any) => (
+            <li class="ad-item">
+              <a class="ad-title" href={`${base}/paper/${p.slug}`}>{p.data.title}</a>
+              <div class="ad-meta">
+                <span class="ad-dir">🧭 {(p.data.direction || p.data.category)}</span>
+                <span class="ad-sep">·</span>
+                <span class="ad-score">{p.data.score}/10</span>
+                {p.data.depth === 'full_pdf' && (
+                  <><span class="ad-sep">·</span><span class="ad-star">★ deep</span></>
+                )}
+              </div>
+              {p.data.one_liner && <p class="ad-one">{p.data.one_liner}</p>}
+            </li>
+          ))}
+        </ul>
+      </details>
+    ))}
+  </div>
 </BaseLayout>
