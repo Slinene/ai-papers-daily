@@ -164,6 +164,39 @@ a:hover { text-decoration: underline; }
 }
 .sidebar-text a { color: var(--link); }
 
+/* ===== Sidebar quick-locate nav ===== */
+.quick-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.quick-nav-list a {
+  display: block;
+  padding: 5px 10px;
+  color: var(--fg-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  border-left: 2px solid transparent;
+  border-radius: 0 4px 4px 0;
+}
+.quick-nav-list a:hover {
+  color: var(--accent-strong);
+  background: var(--bg-soft);
+  text-decoration: none;
+}
+.quick-nav-list a.active {
+  color: var(--accent-strong);
+  background: var(--bg-soft);
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+/* keep anchored sections clear of the viewport top when jumped to */
+.today-banner, .section-h,
+.detail .content h2, .archive-detail .content h2 { scroll-margin-top: 18px; }
+
 /* ===== Site header ===== */
 .site-header {
   background: var(--bg-soft);

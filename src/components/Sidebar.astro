@@ -8,6 +8,11 @@ const RESUME_URL = "https://slinene.github.io/";
     <p class="profile-tagline">AI Engineer · LLM, RecSys & Agents</p>
   </div>
 
+  <nav class="sidebar-section quick-nav" id="quick-nav" hidden>
+    <h4 class="sidebar-h">本页导航</h4>
+    <ul class="quick-nav-list" id="quick-nav-list"></ul>
+  </nav>
+
   <nav class="sidebar-section">
     <h4 class="sidebar-h">个人链接</h4>
     <ul class="sidebar-links">
@@ -28,3 +33,61 @@ const RESUME_URL = "https://slinene.github.io/";
     </p>
   </section>
 </aside>
+
+<script>
+  // Build a per-page "quick locate" list from the section modules in <main>.
+  // Runs after DOM parse; adapts to whatever the daily pipeline rendered.
+  (function () {
+    var main = document.querySelector('main.content');
+    var nav = document.getElementById('quick-nav');
+    var list = document.getElementById('quick-nav-list');
+    if (!main || !nav || !list) return;
+
+    var items = [];
+    var banner = main.querySelector('.today-banner');
+    if (banner) items.push({ el: banner, label: '今日播报' });
+    main.querySelectorAll('.section-h').forEach(function (h) {
+      var label = (h.textContent || '').split('·')[0].trim();
+      if (label) items.push({ el: h, label: label });
+    });
+    // Detail / archive pages: fall back to in-article headings.
+    if (items.length === 0) {
+      main.querySelectorAll('.detail .content h2, .archive-detail .content h2').forEach(function (h) {
+        var label = (h.textContent || '').trim();
+        if (label) items.push({ el: h, label: label });
+      });
+    }
+    if (items.length < 2) return; // not worth a TOC for a single anchor
+
+    var links = [];
+    items.forEach(function (it, i) {
+      if (!it.el.id) it.el.id = 'qn-' + i;
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = '#' + it.el.id;
+      a.textContent = it.label;
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        it.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', '#' + it.el.id);
+      });
+      li.appendChild(a);
+      list.appendChild(li);
+      links.push(a);
+    });
+    nav.hidden = false;
+
+    // Scroll-spy: highlight the section currently nearest the top.
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (!en.isIntersecting) return;
+          var i = items.findIndex(function (x) { return x.el === en.target; });
+          if (i < 0) return;
+          links.forEach(function (l, j) { l.classList.toggle('active', j === i); });
+        });
+      }, { rootMargin: '-10% 0px -75% 0px', threshold: 0 });
+      items.forEach(function (it) { io.observe(it.el); });
+    }
+  })();
+</script>
