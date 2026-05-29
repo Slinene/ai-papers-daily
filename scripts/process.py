@@ -76,6 +76,8 @@ RELEVANCE_SYSTEM = """你是一位 AI 论文领域专家。读者是一名 **AI 
 10 分（直接命中其业务，必读）：
 - 生成式推荐 Generative Recommendation / Semantic ID / RQ-VAE for items / LLM4Rec
 - Agentic Recommendation（推荐/搜索/营销场景里的 LLM Agent、planning、tool-use）
+- 推荐词场景的 LLM/Agent 应用：query / 话题 / 搜索词 / 消息推送词的推荐、生成、改写、扩展
+  （query 推荐与改写、话题推荐、push/消息选词与文案、SEO 推词、suggestion / autocomplete）
 - 电商场景 AI（搜推广、用户建模、营销、履约、商品理解）+ LLM/Agent
 - Multi-Agent 优化 / 协作 / self-evolution 且方法可迁移到推荐/电商
 
@@ -110,13 +112,19 @@ SUMMARY_SYSTEM = """你是一位 AI 论文解读专家。读者是 **专注电�
 {
   "title_zh":       "<论文标题的中文翻译，简洁，<= 50 字>",
   "one_liner":      "<一句话核心贡献，<= 60 字，不带句号>",
-  "category":       "<单选: GenRec | RecSys | Agent | MultiAgent | LLM | RAG | Eval | Training | Multimodal | Reasoning | Other>",
+  "category":       "<单选: GenRec | RecSys | QueryRec | Agent | MultiAgent | LLM | RAG | Eval | Training | Multimodal | Reasoning | Other>",
   "direction":      "<一句话方向归属，<= 24 字，例如 '生成式推荐 · Semantic ID' 或 'Agent 多智体协作优化'>",
   "tags":           ["<3-6 个英文标签>"],
   "affiliations":   ["<从提供的 PDF 首页文本提取作者所属机构，最多 5 个，去重；实在提取不到才 []>"],
   "practical_value":"<markdown，2-4 条 '- ' 列表，面向电商/Agent/生成式推荐从业者的可借鉴点>",
   "summary_md":     "<markdown 正文：动机/方法/结果>"
-}"""
+}
+
+category 归类提示：
+- 论文核心是「给用户推荐/生成 query、话题、搜索词、消息推送词」——query 推荐与改写、
+  话题推荐、push/消息选词与文案、SEO 推词、search suggestion / autocomplete → QueryRec
+- 普通物品/内容/广告推荐、排序、召回、用户建模 → RecSys
+- 生成式物品推荐、Semantic ID、LLM4Rec 直接生成 item → GenRec"""
 
 
 class Relevance(BaseModel):
