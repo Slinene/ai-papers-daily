@@ -65,27 +65,31 @@ client = OpenAI(
 )
 
 RELEVANCE_SYSTEM = """你是一位 AI 论文领域专家。读者是一名 **AI 算法从业者**，专注：
-电商场景 AI / Agent 多智体优化 / 用 Agent 优化电商链路 / 生成式推荐。
+**电商 / 广告（计算广告、CTR/CVR 预估、出价竞价）/ 搜索推荐系统**，
+核心关注 **Agent 结合搜索推荐系统** 与 **LLM 结合搜索推荐系统** 这两条主线。
 他看论文是为了**找能迁移进业务、提升工作效率的方法**，不是学术兴趣。
 
 按对这个读者的实用价值打 0-10 分。
 
 注意：画像用来**排序倾斜**，不是把通用好论文一棍子打死。优质 LLM/Agent/ML
-论文即使不直接命中电商也值得读，给 7-8。只有真和 AI 无关才给低分。
+论文即使不直接命中搜推广也值得读，给 7-8。只有真和 AI 无关才给低分。
 
 10 分（直接命中其业务，必读）：
-- 生成式推荐 Generative Recommendation / Semantic ID / RQ-VAE for items / LLM4Rec
-- Agentic Recommendation（推荐/搜索/营销场景里的 LLM Agent、planning、tool-use）
+- **LLM 结合搜索推荐系统**：LLM4Rec、生成式推荐 GenRec、Semantic ID / RQ-VAE for items、
+  生成式检索 Generative Retrieval、LLM 做排序 / 召回 / query 理解 / 用户兴趣建模
+- **Agent 结合搜索推荐系统**：Agentic Recommendation / Agentic Search（推荐/搜索/营销/广告
+  场景里的 LLM Agent、planning、tool-use、multi-agent、对话式推荐与搜索）
+- **广告 / 计算广告**：CTR/CVR/CTCVR 预估、竞价 bidding、预算分配、创意生成、广告召回与排序、
+  归因，尤其结合 LLM/Agent
+- **电商场景 AI**（搜推广、用户建模、营销、商品理解、履约）+ LLM/Agent
 - 推荐词场景的 LLM/Agent 应用：query / 话题 / 搜索词 / 消息推送词的推荐、生成、改写、扩展
   （query 推荐与改写、话题推荐、push/消息选词与文案、SEO 推词、suggestion / autocomplete）
-- 电商场景 AI（搜推广、用户建模、营销、履约、商品理解）+ LLM/Agent
-- Multi-Agent 优化 / 协作 / self-evolution 且方法可迁移到推荐/电商
 
 8-9 分（高质量，方法大概率可借鉴）：
-- 通用 Agent / Tool-use / Memory / Planning / Multi-Agent
+- 通用 Agent / Tool-use / Memory / Planning / Multi-Agent（方法可迁移到搜推广）
 - 大语言模型核心：训练 / 对齐 / 推理 / Long-context / MoE / Distill / 量化 / RL
 - RAG / Retrieval / Reasoning
-- 经典推荐 / 排序 / 召回 / 用户建模有显著创新
+- 经典推荐 / 搜索 / 排序 / 召回 / 用户建模有显著创新
 
 6-7 分（值得一看的主流 AI/ML 工作）：
 - 其他主流 LLM/ML 方向；评估/效率/可解释；偏工程或增量但扎实
@@ -94,11 +98,22 @@ RELEVANCE_SYSTEM = """你是一位 AI 论文领域专家。读者是一名 **AI 
 3-5 分：沾边、非主流、纯理论且业务无关
 0-2 分：与 AI 完全无关 / 纯水文
 
-只输出 JSON：
-{"score": <0-10 整数>, "reasoning": "<不超过 120 字，点明对电商/Agent/生成式推荐业务的价值>"}"""
+额外加权（头部大厂出品）：
+若能从**标题/摘要**判断出自下列头部工业界团队，在同等相关度下优先，并整体**上浮 1-2 分**
+（封顶 10；但与 AI/搜推广完全无关的仍不超过 5，大厂光环不救水文）：
+- 国内：字节 ByteDance Seed / Doubao、抖音 Douyin / TikTok 搜推广团队、快手 Kuaishou / 可灵 Kling、
+  阿里 通义 Qwen / 淘天 / 蚂蚁 Ant、腾讯 混元 Hunyuan / 微信 WeChat AI、百度 文心 ERNIE、
+  美团 Meituan、京东 JD、小红书 RED、DeepSeek、月之暗面 Moonshot / Kimi、智谱 Zhipu GLM、MiniMax、阶跃 StepFun
+- 国外：Google / DeepMind、OpenAI、Anthropic、Meta AI (FAIR)、Microsoft Research、NVIDIA、Apple、Amazon、
+  Mistral、Cohere；以及搜推广强相关的 Netflix / Pinterest / Spotify / LinkedIn / Snap
+判断线索：标题/摘要出现上述机构名，或其代表模型/系统名（Gemini、GPT、Qwen、Hunyuan、ERNIE、Doubao、
+Kling、Kimi、GLM、Llama 等）。**摘要无法判断机构时，按内容正常打分，不要臆测机构。**
 
-SUMMARY_SYSTEM = """你是一位 AI 论文解读专家。读者是 **专注电商 / Agent 多智体优化 / 生成式推荐的 AI 算法从业者**，
-看论文是为了把有用的东西迁移进业务。为他写一张中文论文卡片。
+只输出 JSON：
+{"score": <0-10 整数>, "reasoning": "<不超过 120 字，点明对电商/广告/搜索推荐系统业务的价值；若判断出自头部大厂，一并点出机构>"}"""
+
+SUMMARY_SYSTEM = """你是一位 AI 论文解读专家。读者是 **专注电商 / 广告 / 搜索推荐系统，核心关注
+Agent 与 LLM 结合搜索推荐系统的 AI 算法从业者**，看论文是为了把有用的东西迁移进业务。为他写一张中文论文卡片。
 
 风格要求：
 - 直接、信息密度高，不要套话；术语保留英文（LoRA、RAG、KV cache、MoE、Semantic ID）
@@ -206,7 +221,13 @@ def _call_json(
 
 
 def score_relevance(paper: dict) -> Relevance | None:
-    user = f"标题: {paper['title']}\n\n摘要:\n{paper['abstract'][:2500]}"
+    # authors give the model a weak extra signal for the big-lab boost (arXiv
+    # has no affiliations, but author names sometimes hint at the team).
+    user = (
+        f"标题: {paper['title']}\n"
+        f"作者: {_short_authors(paper)}\n\n"
+        f"摘要:\n{paper['abstract'][:2500]}"
+    )
     # Score path uses the cheaper/faster model (flash). Pro's deep reasoning
     # chain made 19 candidates take ~45 min — overkill for a 0-10 score.
     return _call_json(

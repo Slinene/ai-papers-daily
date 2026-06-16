@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from common import CACHE_DIR, env_int, env_str, log, write_json
+from common import CACHE_DIR, env_int, env_str, log, recent_repo_names, write_json
 
 GITHUB_TOKEN = env_str("GITHUB_TOKEN")
 UA = "ai-papers-daily/0.1 (+https://github.com/Slinene/ai-papers-daily)"
@@ -41,6 +41,7 @@ ACTIVE_DAYS = env_int("REPOS_ACTIVE_DAYS", 3)       # "recently pushed" window
 ACTIVE_MIN_STARS = env_int("REPOS_ACTIVE_MIN_STARS", 800)
 PER_QUERY = env_int("REPOS_PER_QUERY", 25)
 MAX_REPOS = env_int("REPOS_MAX", 18)
+DEDUP_DAYS = env_int("REPOS_DEDUP_DAYS", 7)   # skip repos broadcast this past week
 README_MAX_CHARS = env_int("REPOS_README_MAX_CHARS", 4000)
 TIMEOUT = 25.0
 
@@ -135,6 +136,17 @@ def main():
             if rp.name and rp.name not in by_name:
                 by_name[rp.name] = rp
         time.sleep(sleep_s)
+
+    # Dedup against the past week's digests: a project already broadcast in the
+    # last DEDUP_DAYS days shouldn't be repeated. Done before README fetch + LLM
+    # so it also saves those calls. Names compared lowercased.
+    if DEDUP_DAYS > 0:
+        seen = recent_repo_names(DEDUP_DAYS)
+        if seen:
+            before = len(by_name)
+            by_name = {k: v for k, v in by_name.items() if k.lower() not in seen}
+            log.info("repo dedup: dropped %d already broadcast in last %dd, %d remain",
+                     before - len(by_name), DEDUP_DAYS, len(by_name))
 
     repos = sorted(by_name.values(), key=lambda x: x.stars, reverse=True)[:MAX_REPOS]
     log.info("collected %d unique repos; fetching READMEs", len(repos))

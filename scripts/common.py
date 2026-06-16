@@ -6,15 +6,17 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable
 
+import yaml
 from dotenv import load_dotenv
 from slugify import slugify as _slugify
 
 ROOT = Path(__file__).resolve().parent.parent
 PAPERS_DIR = ROOT / "src" / "content" / "papers"
+REPOS_DIR = ROOT / "src" / "content" / "repos"
 CACHE_DIR = ROOT / ".cache"
 PAPERS_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -155,6 +157,47 @@ def existing_arxiv_ids() -> set[str]:
         if m:
             ids.add(normalize_arxiv_id(m.group(1)))
     return ids
+
+
+def _read_frontmatter(path: Path) -> dict:
+    """Parse the YAML frontmatter block of a content .md file. Returns {} on
+    any malformed file — dedup must never crash the pipeline."""
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    if not text.startswith("---"):
+        return {}
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}
+    try:
+        return yaml.safe_load(parts[1]) or {}
+    except Exception:
+        return {}
+
+
+def recent_repo_names(days: int = 7) -> set[str]:
+    """Repo full-names (owner/name, lowercased) broadcast in the prior `days`
+    daily digests, read from src/content/repos/<date>.md frontmatter.
+
+    Used to suppress re-broadcasting a project that already appeared in the
+    last week. The window is the `days` digests *before* today — today's own
+    file is excluded so same-day re-runs don't blank out the list."""
+    today = datetime.now(timezone.utc).date()
+    cutoff = today - timedelta(days=days)
+    names: set[str] = set()
+    if not REPOS_DIR.exists():
+        return names
+    for f in REPOS_DIR.glob("*.md"):
+        try:
+            d = datetime.strptime(f.stem, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if d < cutoff or d >= today:   # keep [today-days, today-1]
+            continue
+        for r in (_read_frontmatter(f).get("repos") or []):
+            n = (r.get("name") or "").strip().lower()
+            if n:
+                names.add(n)
+    return names
 
 
 def write_json(path: Path, obj) -> None:

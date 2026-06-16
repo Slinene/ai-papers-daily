@@ -34,9 +34,9 @@ README_IN_CHARS = env_int("REPOS_README_IN_CHARS", 2200)
 client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL,
                 timeout=120, max_retries=2)
 
-SYSTEM = """你是一位 AI 工程方向的技术选型分析师。读者是 **专注电商 / Agent 多智体优化 /
-生成式推荐的 AI 算法从业者**，他想知道今天 GitHub 上比较火的 AI 项目里，哪些对他的
-工作有借鉴价值。
+SYSTEM = """你是一位 AI 工程方向的技术选型分析师。读者是 **专注电商 / 广告 / 搜索推荐系统，
+核心关注 Agent 与 LLM 结合搜索推荐系统的 AI 算法从业者**，他想知道今天 GitHub 上比较火的
+AI 项目里，哪些对他的工作有借鉴价值。
 
 给你一批仓库（含 star 数、描述、README 摘录）。请：
 - 挑出对该读者最有价值的若干个（最多 N 个，N 见 user 消息），按价值排序
