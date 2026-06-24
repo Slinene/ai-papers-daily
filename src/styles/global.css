@@ -736,6 +736,49 @@ details.practical li {
   color: var(--fg-muted);
   font-style: italic;
 }
+/* 表格：渲染成真正的带边框表格（之前无样式，挤成纯文本） */
+.detail .content table, .archive-detail .content table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.detail .content th, .archive-detail .content th,
+.detail .content td, .archive-detail .content td {
+  border: 1px solid var(--border-soft);
+  padding: 7px 11px;
+  text-align: left;
+  vertical-align: top;
+}
+.detail .content thead th, .archive-detail .content thead th {
+  background: var(--bg-soft);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.detail .content tbody tr:nth-child(even), .archive-detail .content tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--bg-soft) 50%, transparent);
+}
+/* 图片：约束宽度防越界 + 居中 + 轻边框 */
+.detail .content img, .archive-detail .content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 18px auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+}
+/* 配图说明（alt 写在 em 里时）/ 图注 */
+.detail .content img + em, .archive-detail .content img + em {
+  display: block;
+  text-align: center;
+  font-size: 13px;
+  color: var(--fg-muted);
+  margin-top: -8px;
+}
 .detail .ext-links {
   margin-top: 36px;
   padding-top: 18px;
