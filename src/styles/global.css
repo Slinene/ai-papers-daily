@@ -797,6 +797,14 @@ details.practical li {
   background: var(--bg-card);
 }
 .detail .ext-links a:hover { background: var(--bg-soft); border-color: var(--fg-faint); text-decoration: none; }
+/* 一键深读按钮：高亮强调 */
+.ext-links a.deep-read-btn {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+  font-weight: 600;
+}
+.ext-links a.deep-read-btn:hover { background: #1d4fd7; border-color: #1d4fd7; color: #fff; }
 
 /* ===== Stats footer ===== */
 footer {

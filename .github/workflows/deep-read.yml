@@ -1,0 +1,92 @@
+name: Deep Read
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  deep-read:
+    # 只处理带 deep-read 标签的 issue（issue 表单会自动打标签）
+    if: contains(github.event.issue.labels.*.name, 'deep-read')
+    runs-on: ubuntu-latest
+    env:
+      DEEPSEEK_API_KEY:  ${{ secrets.DEEPSEEK_API_KEY }}
+      DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL }}
+      DEEPSEEK_MODEL:    ${{ vars.DEEPSEEK_MODEL }}
+      ISSUE_BODY:        ${{ github.event.issue.body }}
+      ISSUE_NUMBER:      ${{ github.event.issue.number }}
+      GH_TOKEN:          ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Parse issue + run deep read
+        id: deep
+        run: |
+          python - <<'PY'
+          import os, re, json, subprocess, sys
+          body = os.environ.get("ISSUE_BODY", "")
+          # GitHub issue form 渲染成 "### <label>\n\n<value>" 块
+          d = {}
+          for blk in re.split(r'^### +', body, flags=re.M)[1:]:
+              head, _, val = blk.partition('\n')
+              d[head.strip()] = val.strip()
+          def get(sub):
+              for k, v in d.items():
+                  if sub in k:
+                      return v
+              return ""
+          url = get("论文链接").strip()
+          tline = get("归类")
+          if "新建" in tline:
+              topic = "__new__"
+          else:
+              m = re.search(r'\(([a-z][a-z0-9-]+)\)', tline)
+              topic = m.group(1) if m else ""
+          def clean(v):
+              return "" if (not v or v.startswith("_No response_")) else v.strip()
+          newname = clean(get("新建 topic 名称"))
+          newicon = clean(get("图标"))
+          if not url:
+              raise SystemExit("issue 里没解析到论文链接")
+          env = dict(os.environ, PAPER_URL=url, TOPIC=topic,
+                     NEW_TOPIC_NAME=newname, NEW_TOPIC_ICON=newicon)
+          r = subprocess.run([sys.executable, "scripts/deep_read.py"], env=env,
+                             capture_output=True, text=True)
+          sys.stderr.write(r.stderr)
+          if r.returncode != 0:
+              raise SystemExit("deep_read 失败:\n" + r.stderr[-800:])
+          res = json.loads(r.stdout.strip().splitlines()[-1])
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"slug={res['slug']}\n")
+              f.write(f"topic={res['topic']}\n")
+              f.write(f"topic_name={res['topic_name']}\n")
+              f.write(f"n_figures={res['n_figures']}\n")
+          PY
+
+      - name: Commit + push
+        run: |
+          git config user.name  "deep-read-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/content/archive_papers public/figures
+          if git diff --cached --quiet; then
+            echo "no changes"; exit 0
+          fi
+          git commit -m "Deep-read: ${{ steps.deep.outputs.slug }} -> ${{ steps.deep.outputs.topic }} (closes #${{ env.ISSUE_NUMBER }})"
+          git push
+
+      - name: Comment + close issue
+        run: |
+          URL="https://slinene.github.io/ai-papers-daily/collection/${{ steps.deep.outputs.topic }}/${{ steps.deep.outputs.slug }}/"
+          gh issue comment "${{ env.ISSUE_NUMBER }}" --body "✅ 深读完成，归到 **${{ steps.deep.outputs.topic_name }}**（DeepSeek 可复现深度正文，标记未核实）。几分钟后上线：${URL} ｜ CI 深读只产正文不配图；如需配图+人工核验，本机用 \`/paper-to-pages ${URL}\` 重做覆盖。"
+          gh issue close "${{ env.ISSUE_NUMBER }}"

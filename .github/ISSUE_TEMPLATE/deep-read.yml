@@ -1,0 +1,41 @@
+name: 🔬 一键深读归档
+description: 触发 GitHub Action 自动深读这篇论文，生成可复现深度解读并归档到论文沉淀
+title: "深读: "
+labels: ["deep-read"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交后 GitHub Action 会自动：读全文 → DeepSeek 生成五大块可复现深度解读 → best-effort 抽图 → 归档到论文沉淀对应 topic → 评论上线链接并关闭本 issue。
+  - type: input
+    id: paper_url
+    attributes:
+      label: 论文链接（arXiv abs / pdf）
+      placeholder: https://arxiv.org/abs/2603.24422
+    validations:
+      required: true
+  - type: dropdown
+    id: topic
+    attributes:
+      label: 归类到哪个 topic
+      options:
+        - 🎯 生成式推荐 (gen-rec)
+        - 🔎 生成式搜索 (gen-search)
+        - 🧭 Agent推荐 (agentic-rec)
+        - 👥 User Simulator (user-simulation)
+        - 🧠 LLM通用 (llm-general)
+        - 🤖 Agent通用 (agent-general)
+        - 🔬 Agent Auto-Research (agent-auto-research)
+        - 🆕 新建 topic（在下方填名字）
+    validations:
+      required: true
+  - type: input
+    id: new_topic_name
+    attributes:
+      label: 新建 topic 名称（仅当上面选「新建」时填）
+      placeholder: 例如「世界模型」
+  - type: input
+    id: new_topic_icon
+    attributes:
+      label: 新建 topic 图标 emoji（可选）
+      placeholder: 🌍

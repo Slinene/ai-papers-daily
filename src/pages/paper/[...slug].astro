@@ -13,6 +13,12 @@ const data = paper.data;
 const published = data.published.toISOString().slice(0, 10);
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const direction = (data.direction || '').trim();
+// 一键深读：跳到预填好的 GitHub Issue 表单（paper_url 自动填入），提交后 Action 自动深读归档
+const deepReadUrl =
+  'https://github.com/Slinene/ai-papers-daily/issues/new'
+  + '?template=deep-read.yml'
+  + '&title=' + encodeURIComponent('深读: ' + data.arxiv_id)
+  + '&paper_url=' + encodeURIComponent(data.url);
 const affiliations = (data.affiliations || []).slice(0, 6);
 const stripMd = (s) => s.replace(/\*\*/g, '').replace(/`/g, '').trim();
 const pvLines = (data.practical_value || '')
@@ -59,6 +65,7 @@ const pvLines = (data.practical_value || '')
       <Content />
     </div>
     <div class="ext-links">
+      <a href={deepReadUrl} target="_blank" rel="noopener" class="deep-read-btn">🔬 一键深读归档</a>
       <a href={data.url} target="_blank" rel="noopener">arXiv 摘要页</a>
       {data.pdf_url && <a href={data.pdf_url} target="_blank" rel="noopener">PDF</a>}
       <a href={`${base}/`}>← 返回首页</a>
