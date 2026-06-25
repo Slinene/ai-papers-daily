@@ -85,6 +85,10 @@ jobs:
           git commit -m "Deep-read: ${{ steps.deep.outputs.slug }} -> ${{ steps.deep.outputs.topic }} (closes #${{ env.ISSUE_NUMBER }})"
           git push
 
+      - name: Trigger site rebuild
+        # GITHUB_TOKEN 的 push 不会自动触发 deploy.yml（GitHub 防递归），显式 dispatch 一次
+        run: gh workflow run deploy.yml --ref main
+
       - name: Comment + close issue
         run: |
           URL="https://slinene.github.io/ai-papers-daily/collection/${{ steps.deep.outputs.topic }}/${{ steps.deep.outputs.slug }}/"
