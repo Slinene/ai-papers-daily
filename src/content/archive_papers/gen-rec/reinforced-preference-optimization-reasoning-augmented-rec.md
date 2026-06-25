@@ -33,6 +33,8 @@ RPORec 的核心主张是：**不要用 hidden state 当接口，用「文本」
 
 ## 整体实现思路
 
+![RPORec 总体架构：(d) 为完整结构（LLM Backbone 生成 CoT y 与 Answer z，Rechead 据此检索 item），(c) 为 Rechead 内部（user history/CoT/answer 经 sentence transformer 编码、Transformer Encoder + Soft Adapter 融合后与 item 向量库点积打分）；(a) Stage I 冻结 LLM、负采样 + CE loss 训练 Rechead，(b) Stage II 冻结 Rechead 产出格式/准确率/CoT/总体奖励、用 GRPO 精炼 LLM。](/ai-papers-daily/figures/reinforced-preference-optimization-reasoning-augmented-rec/fig1.png)
+
 两个核心组件：
 
 - **LLM Backbone**：生成结构化输出，含一段推理 segment（CoT，记为 `y`）和一段答案 segment（描述推荐 item 的标题与属性，记为 `z`）。论文用 Qwen3-0.6B（小模型满足推荐时延要求）。
@@ -164,6 +166,8 @@ RPORec 在几乎所有数据集/指标上 SOTA，CDs and Vinyl（最稀疏）上
 **Case study / CoT 质量（RQ3）**：用 GPT-5.4 当 judge 打两个分（Information Density、Recommendation Utility，0~1）。加 CoT reward 后单例 0.34→0.78、0.41→0.73；测试集均值 0.31→0.79、0.43→0.71。CoT 长度随训练显著下降（Figure 4，从约 700 降到 100 量级），既降噪又提推理效率。
 
 **线上 A/B（快手大规模广告系统）**：
+
+![RPORec 线上部署架构：近线（Nearline）阶段 LLM backbone 处理 user history 生成 CoT y 与 Answer z 存入 K-V 数据库；在线服务阶段从库取 CoT，经 User CoT Feature Embedding Layer + Sum Pooling 得到 User CoT 特征，与其他特征拼接喂给任务特定排序模型（即在线 Rechead）输出打分 s(u,v)。](/ai-papers-daily/figures/reinforced-preference-optimization-reasoning-augmented-rec/fig2.png)
 
 - 部署形态：LLM backbone 当**近线（nearline）用户理解模块**，分析用户画像属性 + 历史行为预测兴趣；抽出 CoT/Answer 存进 K-V 数据库；在线服务时 CoT token embedding 成 dense 向量，作为辅助用户特征喂给下游排序模型（线上 Rechead）。这解决了 LLM 推理时延无法直接在线的问题。
 - 基线：当前生产 SOTA 排序模型，含大量手工特征 + GSU-ESU 模块，0.8B 稀疏 + 0.2B dense 参数。

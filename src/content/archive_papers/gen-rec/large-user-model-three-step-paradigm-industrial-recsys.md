@@ -38,6 +38,8 @@ unverified: false
 
 ## 整体实现思路
 
+![三步范式大用户模型 LUM 总体架构：(a) 知识构建——UBS 拆成 condition/item 交替序列经 Token Encoder + User Encoder 做 next-condition-item 预测；(b) 知识查询——用构造的 condition token（场景 / "Red Chinese dress" 搜索 query / 类目）当 prompt 触发 LUM 取末位输出得到条件下的兴趣 item；(c) 知识利用——把触发兴趣经相似度计算与 target item 一起作为附加特征喂回 DLRM 排序/召回。](/ai-papers-daily/figures/large-user-model-three-step-paradigm-industrial-recsys/fig1.png)
+
 把传统范式（Embedding+MLP 的 DLRM 直接吃 UBS）改成：
 
 ```
@@ -192,6 +194,8 @@ LUM 集成在**排序阶段**。在线服务时，Step2（知识查询）在用�
 - **服务**：LUM 各规模**延迟恒定**、不破 30ms；E2E-GR 连 0.5B 都超时，14B 时要满足 30ms 只能把序列长压到 4096 的 1/64（即 64）。
 
 ### Scaling Law（Figure 7）
+
+![LUM 的 Scaling Law：R@10 随模型规模 log(P)（左，固定序列长）和序列长度 log(L)（右，固定 300M 参数）均呈对数线性增长，红线为拟合的幂律曲线 R_P=0.0068·log(P)+0.1741、R_L=0.0147·log(L)+0.2326，验证 LUM 具备类 LLM 的可扩展性，模型规模可一路 scale 到 7B 仍持续涨点。](/ai-papers-daily/figures/large-user-model-three-step-paradigm-industrial-recsys/fig2.png)
 
 固定 300M 参数变序列长 256→8192，或固定序列变模型规模，R@10 呈幂律：
 

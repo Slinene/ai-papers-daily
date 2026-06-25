@@ -31,6 +31,8 @@ SID 让「语义相似 item 共享 code（受控的有意义碰撞）」取代�
 
 ## 整体实现思路
 
+![Fig 1：RQ-VAE 架构示意——输入内容 embedding x 经 Encoder 编码为 latent z，随后逐级（4 级）查最近 codebook 向量做残差量化，每级输出一位 code，组成层次化 Semantic ID（图中示例为 (1,4,6,2)），再由 Decoder 重建回内容 embedding 空间 x̂](/ai-papers-daily/figures/better-generalization-with-semantic-ids-ranking-recsys/fig1.png)
+
 两阶段，且 Stage 1 训完即**冻结**：
 
 - **Stage 1 — 把内容 embedding 压缩成离散 SID**：用 RQ-VAE（残差量化 VAE）对每个 video 的 2048-d 内容 embedding 做 L 级残差量化，得到长度 L=8 的 code 序列。训完冻结 RQ-VAE，之后只用它的 encoder 给所有（含新）video 产 SID。压缩是为了能高效表示用户历史——每个历史 item 只需存几个整数而非高维向量。
@@ -93,6 +95,10 @@ SID 让「语义相似 item 共享 code（受控的有意义碰撞）」取代�
 - **SPM-SID**。
 
 两种 setting：(a) **不用** user history（只用 current + candidate video 两个特征，Fig 2）；(b) **用** user history（Fig 3）。因为给历史里每个 video 存内容 embedding 极耗资源，Dense Input 只在 setting (a) 可比。
+
+![Fig 2：不使用 user history 时各方法相对 Random Hashing-8K 基线的 CTR AUC 提升（横轴为 embedding 表大小）。(a) 整体 CTR AUC；(b) 冷启动 CTR/1D AUC。Unigram/Bigram-SID 在无历史时甚至差于随机哈希，SPM-SID 在大表下全面领先、冷启动优势尤为明显](/ai-papers-daily/figures/better-generalization-with-semantic-ids-ranking-recsys/fig2.png)
+
+![Fig 3：使用 user history 时各方法相对 Random Hashing-8K 基线的 CTR AUC 提升。(a) 整体 CTR AUC；(b) 冷启动 CTR/1D AUC。有历史后 N-gram-SID 与 SPM-SID 均显著超过随机哈希，SPM-SID 在大表下持续最优](/ai-papers-daily/figures/better-generalization-with-semantic-ids-ranking-recsys/fig3.png)
 
 **关键结论（百分比相对 Random Hashing-8K）**：
 

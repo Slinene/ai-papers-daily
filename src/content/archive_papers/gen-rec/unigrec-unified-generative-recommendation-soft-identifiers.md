@@ -21,6 +21,8 @@ unverified: false
 - **Staged (分阶段)**: 先把 tokenizer 训好冻住, 再训 recommender。tokenizer 完全感知不到下游推荐目标, 标识符僵化。
 - **Alternating (交替)**: 加辅助 loss、按 epoch 交替更新两个模块 (如 ETEG-Rec), 但没有一个统一的高层目标, 两模块仍是异步更新, 无法真正对齐。
 
+![Figure 1: 生成式推荐三种训练范式对比。Staged (分阶段) 把 tokenizer 训好后冻结, 训 recommender 时 tokenizer 完全感知不到下游目标; Alternating (交替) 异步更新两模块但缺统一目标; Ours (本文) 用软标识符 (Soft Identifier) 打通可微路径, 让 tokenizer 与 recommender 在单一统一目标 (Unified Objective) 下端到端联合优化, 形成统一梯度流。](/ai-papers-daily/figures/unigrec-unified-generative-recommendation-soft-identifiers/fig1.png)
+
 UniGRec 的关键 belief: **最终的推荐损失 `L_Rec` 本身就应该是 tokenizer 和 recommender 共同的统一目标**。障碍是 RQ-VAE 的码字选择用 `argmin` (硬量化), 不可微, 梯度无法从推荐损失反传到 tokenizer。
 
 解法是 **软标识符 (soft identifier)**: 不再选一个最近码字, 而是把每个 item 表示成「对整个码本的概率分布」(对码字距离做温度 softmax)。这条连续路径可微, 于是推荐损失能直接反传监督 tokenizer, 两模块在单一目标下联合端到端训练。
@@ -32,6 +34,8 @@ UniGRec 的关键 belief: **最终的推荐损失 `L_Rec` 本身就应该是 tok
 3. **协同信号不足 (Collaborative Signal Deficiency)**: 软标识符过度强调细粒度 token 级语义, 弱化了粗粒度 item 级协同信号 → **Dual Collaborative Distillation** (双路协同蒸馏)。
 
 ## 整体实现思路
+
+![Figure 2: UniGRec 整体框架。引入软标识符后, tokenizer (橙色) 与 recommender (蓝色) 被无缝整合, 在统一的推荐损失 (Recommendation Loss, 顶部) 下端到端联合优化。Tokenizer 端: Item Input → Encoder → 三层 Codebook (配 Temperature Annealing 温度退火与 Uniformity Regularization 均匀性正则) → Decoder, 并输出 Soft Identifier (软标识符概率分布); 经 Differentiable Path (可微路径) 喂入 recommender 的 Token Embedding Table 做概率加权聚合, 再过 Encoder-Decoder 做 Teacher Forcing 训练。底部预训练轻量 Collaborative Model 通过双路 Distillation 同时向 tokenizer 与 recommender 注入协同先验。](/ai-papers-daily/figures/unigrec-unified-generative-recommendation-soft-identifiers/fig2.png)
 
 整条链路 (输入 item 语义 embedding → tokenizer → 软标识符 → recommender → 推荐损失) 全程可微, 两阶段训练:
 

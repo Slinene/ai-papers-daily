@@ -23,6 +23,8 @@ unverified: false
 
 电商搜索的稠密检索（dense retrieval）一直是"**直接编码**"范式：把 query 一次前向过 encoder 拿到一个 embedding，再和预存的 item embedding 算相似度做 ANN 召回。即使 backbone 从 BERT 换成 LLM（RepLLaMA / NV-Embed），本质还是 single forward pass 出 embedding，再靠对比学习（InfoNCE）把人标的正样本对硬拉近。作者指出这条路的根本缺陷：**对比学习让模型去拟合训练数据里的统计共现，退化成浅层的词面/语义匹配**。一旦 query 和目标 item 字面差异大（"比茶更提神的饮料"应召回咖啡/红牛，而不是各种茶饮），直接编码就崩。
 
+![图1：传统直接编码稠密检索 vs LREM 的"先推理再编码"范式对比。以难 query"比茶更提神的饮料"为例，直接编码召回了大量茶饮（左，红叉），LREM 先推理出"咖啡/红牛/Monster 能量饮料"再编码，准确召回目标商品（右，绿勾）。](/ai-papers-daily/figures/large-reasoning-embedding-models-dense-retrieval/fig2.png)
+
 LREM（Large Reasoning Embedding Model）提出一个全新范式 —— **reasoning-then-embedding（先推理再编码）**：
 
 - 对难 query，先让模型显式生成一段 CoT（`c_i = f_gen_θ(q_i)`），CoT 是 LLM 对 query 真实购物意图的推理；
@@ -33,6 +35,8 @@ LREM（Large Reasoning Embedding Model）提出一个全新范式 —— **reaso
 CoT 在这里充当 **语义桥梁**：把字面相距很远的 query 和 item 连起来。关键工程取舍是 CoT 必须**短**（关键词列表而非流畅句子），否则在线自回归生成会引入巨大延迟甚至请求超时。同一个 LREM 同时承担 query 侧（带推理）和 item 侧（不带推理）的编码。
 
 ## 整体实现思路
+
+![图2：LREM 整体框架。(1) 数据构造：LLM 为每个 query 生成关键词式 CoT，用"带/不带 CoT 召回结果做差集 ②-①"过滤无增益 query，再用关联性模型筛真正相关的 item；(2) 冷启动：在 Query-CoT-Item 三元组上用 SFT loss 优化推理过程、InfoNCE loss 对齐 reasoning-augmented query embedding 与 item embedding；(3) 强化学习：在 Query-Item 对上用 GRPO（reward system 引导探索更优推理轨迹）+ InfoNCE 联合训练。同一个 LREM 同时承担 query 侧与 item 侧编码。](/ai-papers-daily/figures/large-reasoning-embedding-models-dense-retrieval/fig1.png)
 
 LREM 需要同时具备**推理能力**和**编码能力**，作者用三段式管线 + 两阶段训练实现：
 
@@ -135,6 +139,8 @@ LREM 为兼顾生成，保留单向注意力（理论上弱于双向 Bi-Attn）�
 - Query-CoT（只在推理区重复 query）反而比 Empty-CoT 好一点（HR +0.95、Precision +1.38），因为重复 query 让早期 token 也能被"后面的 token"看到，**部分缓解了单向注意力前面看不到后面的缺陷**——这是个有意思的副产物结论。
 
 ### 消融：CoT 长度（Figure 5 文字）
+
+![图5：不同 CoT 长度下的检索性能。HitRate@6000 与 Precision@100 均在 CoT 长度=32 时达到峰值（35.41 / 68.69），16→32 提升明显，但继续增到 48/64 反而下降。](/ai-papers-daily/figures/large-reasoning-embedding-models-dense-retrieval/fig3.png)
 
 l 从 16→32 提升明显（过短约束伤推理）；但 l 增到 48/64 反而下降——LREM 是关键词式推理，过长发散的关键词序列稀释语义精度、分散注意力。最终取 **l=16** 平衡效果与效率。
 

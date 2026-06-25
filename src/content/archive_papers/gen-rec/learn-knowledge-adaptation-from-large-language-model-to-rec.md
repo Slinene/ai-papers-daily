@@ -28,6 +28,8 @@ LEARN 把方向反过来——**"LLM-to-Rec"**：不让推荐去迁就 LLM 的�
 
 ## 整体实现思路
 
+![LEARN 框架总览：双塔结构，User Tower 与 Item Tower 各由冻结 LLM 的 Content Extraction Module（内容抽取）与可训的 Preference Alignment Module（偏好对齐）串联；图中并列展示 User Tower 与 Item Tower 的三种变体 (a)/(b)/(c)，下方箭头为按时间顺序排列的交互序列，右侧图例区分文本描述 / content / user / item embedding](/ai-papers-daily/figures/learn-knowledge-adaptation-from-large-language-model-to-rec/fig1.png)
+
 把用户按时间顺序的交互序列以某一时间戳切成两段：前段为历史序列 U^hist（长度 H），后段为目标序列 U^tar（长度 T）。LEARN 是**双塔**结构：
 
 - **User Tower**：输入 U^hist 的 item 文本描述序列 → 输出 user embedding E^user ∈ R^64。
@@ -41,6 +43,8 @@ LEARN 把方向反过来——**"LLM-to-Rec"**：不让推荐去迁就 LLM 的�
 训练用自监督对比学习对齐线上排序目标（user emb 与相关 item emb 拉近、与无关 item 推远），并采用 dense all-action loss 充分利用长期兴趣。线上则把双塔产出的 user/item emb 通过一个 LEARN-Adaptor 融合进既有排序模型。
 
 ## 子模块实现（可复现细节）
+
+![两大子模块细节：(a) Content Extraction (CEX) 模块——冻结的 Pretrained LLM + Average Pooling Layer，输入为人工拼接的极简 item 文本描述（图中即原文耳环商品 prompt 示例），输出 content embedding E^c；(b) Preference Alignment (PAL) 模块——Content Adaptor 做维度变换、12 层 causal Transformers 做域投影、Online Projection 产出 user embedding E^user](/ai-papers-daily/figures/learn-knowledge-adaptation-from-large-language-model-to-rec/fig2.png)
 
 ### CEX 模块（内容抽取）
 

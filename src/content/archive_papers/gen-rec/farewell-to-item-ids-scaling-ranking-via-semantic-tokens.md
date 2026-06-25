@@ -28,6 +28,8 @@ unverified: false
 
 ## 整体实现思路
 
+![TRM 整体框架（图 2）：三大模块流水线——Ⅰ 协同感知多模态表征（Qwen2.5-VL 对短视频做 caption + 用对比损失对齐 query-item/item-item 协同信号），Ⅱ 混合分词（RQ-Kmeans 残差量化出粗粒度 gen-tokens，BPE 挖高频组合出细粒度 mem-tokens，经 Wide&Deep 融合，deep 侧 gen-token 加随机 dropout、wide 侧 mem-token），Ⅲ 判别+生成联合优化（RankMixer Blocks 跑判别 ctr/like/realplay，Causal Transformer 做 Next-Token-Prediction 生成 gen-token 序列）。](/ai-papers-daily/figures/farewell-to-item-ids-scaling-ranking-via-semantic-tokens/fig1.png)
+
 TRM 把「item 建模 → 表征离散化 → 排序优化」重构成一条统一流水线（图 2）：
 
 1. **协同感知多模态表征**：两阶段对齐，先做短视频域内 caption 微调注入领域知识，再用用户协同信号（query-item 正反馈对、item-item 高频共点击对）做对比学习对齐，产出既懂语义又懂行为的 dense item 向量。
@@ -123,6 +125,8 @@ L_g = E_{(X^i_{Q,U}, Y^i)} [Y^i=1] · Σ_{j=1}^{L} CE(s^i_j, P(ŝ_j | X^i_{Q,U},
 - TRM-Pure Transformer（纯 transformer、无任何特征交叉模块）也很能打，FLOPs 最低，暗示「全 token 架构」可行。
 
 ### Scaling Law（关键卖点）
+
+![Scaling 行为（图 4）：横轴左为 dense 参数、右为单 batch（bs=4096）训练 FLOPs，纵轴为相对 7M MLP 基线的 CTR qAUC 增益。基于 token 的 TRM-RankMixer（蓝色）在两种预算下都持续领先于 SEMID Token（橙）、RankMixer ID（绿）、WuKong ID（红）、DHEN ID（紫）——dense 容量越大，token 化相对 ID baseline 的优势越拉越大，且 ID 强基线明显先饱和。](/ai-papers-daily/figures/farewell-to-item-ids-scaling-ranking-via-semantic-tokens/fig2.png)
 
 dense 网络放大时，TRM-RankMixer 相对 ID baseline 的优势**越拉越大**：
 - 最大规模：TRM-RankMixer 在 1888M 达 **+0.75% qAUC**，SEMID 在 1843M 为 +0.68%，ID-RankMixer 在 1768M 仅 +0.60%。

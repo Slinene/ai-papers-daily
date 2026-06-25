@@ -30,6 +30,10 @@ unverified: false
 
 ## 整体实现思路
 
+![Figure 1：联合生成式模型在不同 Semantic ID 构造方法下的 Search R@30 与 Rec R@30 散点（红=任务专属，蓝=跨任务，虚线=Pareto 前沿）。Multi-task 落在前沿、两任务都接近各自最优；Search/Rec based 各自只在单任务上强。](/ai-papers-daily/figures/semantic-ids-for-joint-generative-search-and-recommendation/fig1.png)
+
+![Figure 2：两种任务专属 Semantic ID 构造流程。左侧 Search based：搜索数据微调 Bi-encoder 产出 item embedding，经 ID strategy 量化后喂入联合 S&R 生成模型；右侧 Rec. based：推荐数据训 ENMF（协同过滤）embedding 再量化。两者都只用单任务监督信号。](/ai-papers-daily/figures/semantic-ids-for-joint-generative-search-and-recommendation/fig2.png)
+
 整条链路三段式：**(1) 选 embedding 来源 → (2) 用 ID strategy（量化器）把 embedding 离散成 Semantic ID → (3) 把 Semantic ID 喂进一个对搜索和推荐联合训练的生成式模型（flan-t5-base）做生成式检索**。本文唯一变量是第 1、2 段（embedding 来源 + 量化方法），第 3 段（生成模型）固定。
 
 作者把 embedding/ID 构造方法分两大族、共 7 种：
@@ -66,6 +70,8 @@ unverified: false
 问题：两个空间维度不等（386 vs 256），**维度大的空间会被过度表征**。
 
 **4) Fused_SVD**：先归一化，再用 truncated SVD 把高维降到相同维度 d，然后**逐元素相加**：`v_svd = v_search + v_rec`，再量化。相比 Fused_concat 提升了推荐、轻微降了搜索。
+
+![Figure 4：两类「embedding 融合」方法。左侧 Multi-task（本文推荐）：单个 Bi-encoder 同时吃搜索+推荐两路监督信号训练，产出共享 embedding 再统一量化成一套 Semantic ID；右侧 Fused：搜索 Bi-encoder 与推荐 ENMF 各出 embedding，先做 Fusion（concat / SVD 相加）再量化。](/ai-papers-daily/figures/semantic-ids-for-joint-generative-search-and-recommendation/fig3.png)
 
 **5) Multi-task（本文推荐）**：把 bi-encoder 同时在两种监督信号上训 —— 搜索的 query–item 对（来自 D_S）+ 推荐的 co-occurring item 对（来自 D_R），**共享 encoder 用两个 contrastive loss 之和优化**，产出同时携带检索与协同过滤线索的 v_mt，再统一量化成一套 Semantic ID。
 

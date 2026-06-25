@@ -38,6 +38,8 @@ Recformer 的回答是把「自然语言理解」和「序列推荐」**统一�
 
 ## 整体实现思路
 
+![Recformer 总体框架（图 3）：(a) 模型结构——把用户序列拍平成「[CLS] + item 句子序列」，每个词的输入向量由 Token / Token-Pos / Token-Type / Item-Pos 四类 embedding 求和而成，经 Transformer 编码后取 h_[CLS] 作为序列/item 表征；(b) 预训练——Masked Language Modeling 与 Item-Item 对比任务（in-batch 负例 + ground-truth next item）联合优化。](/ai-papers-daily/figures/text-is-all-you-need-language-representations-seq-rec/fig1.png)
+
 ```
 属性字典 D_i = {(k1,v1),...,(km,vm)}
         │ flatten
@@ -62,6 +64,8 @@ h_[CLS] = 序列表征 h_s ；单 item 当作只含一个 item 的序列 → ite
 ## 子模块实现（可复现细节）
 
 ### 1. 输入构造与序列反转
+
+![输入数据对比（图 1）：传统序列推荐用 item ID 序列（315 → 235 → 822），而 Recformer 把每个 item 的 key-value 属性（Title / Brand / Color）拍平成「item 句子」，用户序列由此变成「句子的序列」。表征建立在共享词表的 word token 上，因此可跨域迁移、可冷启动。](/ai-papers-daily/figures/text-is-all-you-need-language-representations-seq-rec/fig3.png)
 
 每个 item 取 **title / categories / brand** 三个属性（沿用 UniSRec 设定），拍平成 item 句子。用户序列 `{i1,...,in}` **先反转成 `{in, in-1, ..., i1}`**——因为最近的 item 对 next-item 预测最重要，反转能保证在 token 截断时最近 item 一定进窗口。前置 `[CLS]`，得到 `X = {[CLS], T_n, ..., T_1}`。
 
@@ -140,6 +144,8 @@ Adam，lr 5e-5；batch 预训练 64 / 微调 16；early stop patience 5；Longfo
 平均 **NDCG@10 +15.83% / MRR +15.99%**（对第二名）。唯一没拿第一的是 Instruments 的 Recall@10。
 
 ### 零样本（Figure 4）
+
+![零样本设定下三个 Text-Only 方法的 NDCG@10（图 4）：Recformer（青色）在 Scientific / Arts / Instruments / Office / Games / Pet 六个域全面超过 UniSRec 与 ZESRec；灰色折线 Fully-Supervised 为三个 ID-Only 方法（SASRec / BERT4Rec / GRU4Rec）全量训练的均值，Recformer 在 Scientific 上零样本即超过该全量基线。](/ai-papers-daily/figures/text-is-all-you-need-language-representations-seq-rec/fig2.png)
 
 三个 Text-Only 方法预训练后直接测下游（ID 方法无法零样本）。Recformer 零样本在六个域全面超过 UniSRec / ZESRec；**在 Scientific 上零样本 NDCG@10 甚至超过三个 ID 方法全量训练的平均值**。论文报告零样本设定平均提升 39.78%（NDCG@10）。
 

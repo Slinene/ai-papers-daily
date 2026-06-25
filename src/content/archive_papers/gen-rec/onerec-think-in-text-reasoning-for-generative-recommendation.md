@@ -42,6 +42,8 @@ $$ \tau \sim P(\cdot \mid \mathcal{P}(s_{v_1},\dots,s_{v_n});\theta),\qquad s_{v
 
 ## 整体实现思路
 
+![OneRec-Think 总体框架：三阶段串行训练。(a) Stage1 Itemic Alignment 用四个 NTP 任务把 itemic token 与文本 token 通过 Tokenizer/Mapping 对齐进语言空间；(b) Stage2 Reasoning Activation 先在 top-k 最相关历史(Most Relative Behaviors)上 prompt 模型生成偏好 rationale τ，再迁移到完整用户历史；(c) Stage3 Reasoning Enhancement 在 GRPO 下对多条 Reasoning rollout 做 beam search，用逐位匹配数作为奖励强化推理路径。](/ai-papers-daily/figures/onerec-think-in-text-reasoning-for-generative-recommendation/fig1.png)
+
 三阶段串行训练 + 一套部署架构：
 
 - **Stage 1 · Itemic Alignment（多任务预训练）**：把 recommender 知识 grounding 进 LLM 语言空间。四个 NTP 任务混训，并切成两子阶段：先 *Token Warm-up*（冻结 backbone，只训新 item token embedding），再 *Multi-Task Integration*（解冻全参/或 LoRA 联合训）。
@@ -156,6 +158,8 @@ Itemic Alignment 提供语义地基，推理机制再叠一层显著增益（N@5
 | Short Video Understanding | 0.6031 | 0.6443 | **0.7300** |
 
 文本重的 User 任务上 TW 增益有限（LLM 本就能处理文本），MI 才带来大跳；纯 item token 的 Short Video 任务上 TW、MI 各自递增——印证两子阶段对「解释非文本 item 信息」都必要。
+
+![OneRec-Think 统一「对话+推理+推荐」框架示例：同一模型支持四类交互——给 itemic ID 描述视频内容(Describe the video)、反向总结用户画像与兴趣(Describe the user)、显式 Think&Recommend 先吐 <think> 推理再给推荐 item、以及按用户即时情绪约束(如「想要欢快治愈内容」)动态调整的 Interactive Recommendations。](/ai-papers-daily/figures/onerec-think-in-text-reasoning-for-generative-recommendation/fig2.png)
 
 **Case Study**：(1) 对话场景（Fig 3）用户表达负面情绪时，模型主动把推荐从一般兴趣切到轻松治愈内容；(2) Fig 4 生成细粒度推理路径（具体玩法机制/叙事模式），超越粗主题匹配；(3) Fig 5 在中间推理步做 beam search，推理文本与推荐 item 强一致——证明推理是**真正驱动**生成而非事后辩护；(4) Fig 6 itemic-textual **交错推理**：item token 做内容锚点、文本 token 做因果articulation。
 

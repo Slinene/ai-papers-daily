@@ -21,11 +21,15 @@ unverified: false
 已有的"用多模态内容补冷启"路线有两个工业落地痛点：
 
 1. **语义空间 ≠ 协同空间**。多模态语义表征和 CTR 系统的协同 ID embedding 空间不匹配。论文用一张 t-SNE 图（Figure 1）说明：在 MovieLens 这类公开 benchmark 上 ID embedding 有清晰的按 genre 聚类结构，content→ID 对齐相对容易；但小红书生产环境的 ID embedding 因特征稀疏、交互模式复杂而呈现**不规则、非聚类**的分布，冻结的 content encoder 或浅层 MLP 映射根本架不起这座桥。
+
+![Figure 1：用 t-SNE 可视化 item ID embedding。左为 MovieLens-1M（SASRec + 特征交叉学到），按 genre 呈清晰聚类结构；右为小红书生产环境 ID embedding，呈不规则、非聚类分布——说明工业 ID 空间难以用浅层映射对齐。](/ai-papers-daily/figures/idproxy-cold-start-ctr-prediction-mllm-xiaohongshu/fig1.png)
 2. **要复用成熟架构、不能加部署成本**。已有方法（QARM / MOON / SimTier&Maker 对齐共现结构；CB2CF / CLCRec / GoRec / GAR 直接 content→collaborative 映射）要么靠手工设计的对齐目标反复调，要么没充分利用排序模型本身的结构与分布先验，增益有限且部署复杂。而且 CTR 模型在线上持续演化，对着一个**静态 target**学，长期优化和稳定部署都成问题。
 
 IDProxy 的答案：用 MLLM 生成 **proxy item embedding** \(p_i \in \mathbb{R}^d\)，它被**显式对齐到现有 item ID embedding 空间**，并在 CTR 目标下与 ranker **端到端联合优化**，从而能直接"无缝顶替" \(e_i\) 进现有排序流水线，最大化复用已有 ID 知识和结构先验。
 
 ## 整体实现思路
+
+![Figure 2：IDProxy 两阶段 coarse-to-fine 对齐框架总览（左侧为小红书 Explore Feed）。First Stage 用 MLLM（Vision Enc + Token Emb + connector）编码多模态内容，经 Align Loss 对齐到 item id embedding 得到 IDproxy_coarse；Second Stage 用层次表征划分（Hierarchical Rep Partitioning）+ 残差细粒度 Encoder 产出 IDproxy_fine，与 coarse 一起灌进 ranker 的 sequence modeling（Target Attention）与 feature interaction（Cross network）端到端联合训练。](/ai-papers-daily/figures/idproxy-cold-start-ctr-prediction-mllm-xiaohongshu/fig2.png)
 
 两阶段 coarse-to-fine：
 

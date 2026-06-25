@@ -24,6 +24,8 @@ unverified: false
 
 平台越来越重视用户「不喜欢」的表达（淘宝/拼多多/TikTok Shop/YouTube 都有 dislike 按钮），负反馈率已成为和 CTR/GMV 同等重要的用户体验指标。但学界几乎都把负反馈当成**辅助信号去增强正推荐**，极少有人**直接对负向兴趣建模**。CoNRec 是第一个用 LLM 做这件事的工作，定位是**离线生成「用户最可能给负反馈的 item 集合」**，在线时把召排候选 reconstruct 成 embedding，跟这个集合算最大相似度超阈值就过滤掉——既绕开了 LLM 在线推理延迟，又比传统「整类目硬屏蔽」的规则方法精细得多。
 
+![两项动机实验（论文 Figure 2）：(a) 饼图——「下一个」负反馈只覆盖用户 top-1 负兴趣的 7%（top-4 仅 17%），扩到未来 7 天后 top-4 覆盖率升到 48%；(b) 柱状图——同时喂正反馈（Negative&Positive，正序列约为负的 3 倍）相比只喂负反馈（Negative Only），HR@20 与候选准确率大幅下滑](/ai-papers-daily/figures/conrec-context-discerning-negative-recommendation-llms/fig2.png)
+
 把正推荐方法直接搬到负反馈场景会踩三个坑，全篇设计都在解这三个：
 
 1. **负推荐不是正推荐的反转**。「没有正反馈」通常意味着中性（neutral）而非 dislike，两者中间隔着大片中性空间，所以不能简单把正模型取反。
@@ -31,6 +33,8 @@ unverified: false
 3. **next-negative-item 目标本身被系统污染**。被多次负反馈的 item 早被系统永久过滤、不会再曝光，所以「下一个负反馈 item」更多由系统曝光机制决定、而非用户真实负兴趣。实测**只有 7% 的 next 负反馈对应用户 top-1 负兴趣，top-4 也只有 17%**（Fig 2a），噪声极大；而扩到未来 7 天，top-1 升到 18%、top-4 升到 48%。
 
 ## 整体实现思路
+
+![CoNRec 整体框架（论文 Figure 3）：先把 item 多模态信息压成 Semantic ID（Context Compression），再经 Context Understanding（双向 SID↔标题翻译 + Item-Level Alignment 四选一对比）让 LLM 理解负反馈语义，最后用 Progressive GRPO（含 GTS/FPS 与无偏 reward 公式）做 Context Utilization 生成负向 item](/ai-papers-daily/figures/conrec-context-discerning-negative-recommendation-llms/fig1.png)
 
 CoNRec 分三个阶段串行（见架构图），全部围绕「让 LLM 辨别负反馈上下文」这一目标：
 
@@ -99,6 +103,8 @@ reward = max_{i∈GTS} sim(Out, i) − γ · max_{t∈FPS} sim(Out, t)
 **训练数据量**：Progressive GRPO 前先用 **20 万**样本做 warm-up SFT，之后每阶段 **10 万**样本做 post-training。
 
 ### 4. 工业离线应用
+
+![CoNRec 离线工业部署（论文 Figure 4）：左侧召排后的候选逐个取 Target Item，经 codebook 重建成 Target Embedding；右侧 CoNRec 用 beam search 生成 Predict Set 并重建成 Predict Embedding Set（PES）；计算 score = max sim(Target, i)，超阈值 θ 则 Filter Out、否则 Keep，全程无需 LLM 在线推理](/ai-papers-daily/figures/conrec-context-discerning-negative-recommendation-llms/fig3.png)
 
 CoNRec 离线 beam search 生成 Predict Set；在线时把召排阶段的 target item 和预测 item 都用存好的 codebook reconstruct 成 embedding，算最大相似度 `score = max_{i∈PES} sim(Target, i)`，超阈值 `θ` 就 Filter Out、否则 Keep。全程不需要 LLM 在线推理。
 

@@ -30,6 +30,8 @@ SIDReasoner 的核心主张是：**与其去采集大量推荐专属的推理标
 
 ## 整体实现思路
 
+![SIDReasoner 总体框架：左上「多任务微调」（SID-Title 翻译 + SID 序列预测）与「富化预训练语料」（Item 语义扩写 + User 推理扩写，由教师模型合成，凡提及 item 一律用 SID token 替代 title）共同强化 SID-语言对齐；下方 LLM 接收 SID 化的交互历史，先在 `<think>` 内做推理再解码下一个物品 SID；右侧「GRPO 推理增强」对每条 prompt 采样 N 条推理路径，按命中真实物品给 outcome reward（Score 0.00/0.25/1.00）做强化优化。](/ai-papers-daily/figures/reasoning-over-semantic-ids-enhances-generative-recommendation/fig1.png)
+
 **问题形式化。** 用户 $u$ 的时序交互历史 $H_u=(i_1,\dots,i_T)$，目标生成下一个物品 $i_{T+1}$。每个 item $i$ 映射成定长 SID 序列 $\text{SID}(i)=(s_i^1,\dots,s_i^L),\ s_i^l\in\mathcal{S}$。LLM 词表扩成 $\mathcal{V}=\mathcal{V}_{LM}\cup\mathcal{S}$（语言 token + itemic token）。历史展平成 itemic-token 上下文 $H_u=\text{concat}(y_1,\dots,y_T)$，配上指令 prompt $p$ 得到上下文 $C_u=[p;H_u]$。生成时模型**先产一段推理序列 $\tau=(r_1,\dots,r_M)$，再产下一个物品的 SID**：
 
 $$\tau\sim\pi_\theta(\cdot\mid C_u),\qquad y_{T+1}\sim\pi_\theta(\cdot\mid C_u,\tau)$$
@@ -172,9 +174,13 @@ SIDReasoner 全部指标最优。**推理收益与领域语义知识强相关**�
 
 ### RL 中推理的演化（RQ3）
 
+![Games 数据集 RL 训练过程中推理长度与性能的变化：随训练步数增加，平均 CoT 长度（蓝线）从 ~168 单调下降并收敛到 ~155，而 Recall@10（橙线）稳步上升至 ~0.103，说明 RL 自发把推理链变短、变精，效果反而更好。](/ai-papers-daily/figures/reasoning-over-semantic-ids-enhances-generative-recommendation/fig3.png)
+
 RL 早期**推理长度明显下降并收敛到更短**，而 Recall@10 稳步上升。解释：对齐阶段从教师（GPT-4o-mini）学到的推理含冗余/无用片段；RL 快速识别并丢弃，转向更短、更聚焦决策的轨迹。**有效推荐推理不需要更长的链，而是更高效的链。**
 
 ### 案例研究（RQ3）
+
+![案例研究：模型显式推理带来有效且可解释的推荐。输入为 SID 编码的交互史（策略 RPG + Nintendo amiibo 收藏类游戏）；模型在 Reasoning 段先分析用户对 Fire Emblem 系列、Super Smash Bros 系列等的强偏好，推断其倾向能补充现有 amiibo 收藏、增强游戏体验的物品；Output 段据此解码出 Nintendo amiibo 相关 item 的 SID，成功命中目标。推理直接塑造解码轨迹，是透明决策而非事后解释。](/ai-papers-daily/figures/reasoning-over-semantic-ids-enhances-generative-recommendation/fig2.png)
 
 给定 SID 编码的交互史，模型先在 `<think>` 里总结用户兴趣（策略 RPG + Nintendo amiibo 收藏），推断其偏好收藏类且能增强游戏体验的物品，进而把 SID 解码轨迹导向 Nintendo amiibo 相关 item，成功命中目标。推理直接塑造解码轨迹与推荐列表，是透明的决策过程而非事后解释。
 

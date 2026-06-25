@@ -36,6 +36,8 @@ NEO 的解法可以浓缩成三个设计决策：
 
 ## 整体实现思路
 
+![NEO 整体架构：预训练 LLM 同时消费文本 token 与 Catalog Tokenizer 产出的语义 ID（SID，如 2-token 元组），把用户历史中的音频书、播客等多类型物品与自然语言交错编码进同一序列，并在输出端同时生成文本与 SID，实现 tool-free、catalog-grounded 的检索/推荐/解释](/ai-papers-daily/figures/neo-unified-language-model-search-rec-reasoning/fig1.png)
+
 论文把 NEO 放在一个更通用的**四阶段域适配 LLM 流水线**里，NEO 实例化前三阶段：
 
 | 阶段 | 名称 | 干什么 | 冻结/训练 |
@@ -44,6 +46,8 @@ NEO 的解法可以浓缩成三个设计决策：
 | Stage 2 | Domain Grounding（域对齐） | 把 SID token 对齐到 LLM 语言空间（SID↔文本双向） | **冻结 backbone**，只训新 SID 输入 embedding + SID 输出 logits |
 | Stage 3 | Capability Induction（能力诱导） | 多任务指令微调，学会 recommend/retrieve/explain/understand | **全参微调**（也可 LoRA） |
 | Stage 4 | Task-specific post-training | 业务约束/RL/产品定制（本文不研究） | — |
+
+![NEO 的四阶段域适配流水线：Stage 1 语义基座学习物品的 SID 表示（含层级语义，如从 Broad 到 Fine category），Stage 2 域对齐冻结 backbone（冰）只训 SID 相关参数让文本与 SID 共享潜空间，Stage 3 能力诱导全参微调（火）做多任务指令跟随，Stage 4 任务特定后训练（本文不研究）](/ai-papers-daily/figures/neo-unified-language-model-search-rec-reasoning/fig2.png)
 
 数据规模：域对齐阶段约 **5M** 样本；能力诱导阶段共 **10M** 训练样本，测试约 **100K**。Backbone 默认 **Qwen3-0.6B**，并用 **Llama 3.2 1B** 验证框架无关性。训练用 8×H100、PyTorch、序列 packing + Ray 做 CPU/GPU 负载分布。
 

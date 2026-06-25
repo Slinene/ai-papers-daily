@@ -31,6 +31,8 @@ unverified: false
 
 ## 整体实现思路
 
+![图1：记忆 vs 泛化的图解定义。左侧「记忆」是复用训练中见过的 1-hop 转移；右侧「泛化(1-hop)」按对称性 Symmetry、传递性 Transitivity、二阶对称 Second-order Symmetry 三种子类划分，分别给出训练侧观测到的转移与推理侧需要推断的新转移；底部图例标注 items / users / 观测转移(黑箭头) / 模型推理(橙箭头)。](/ai-papers-daily/figures/how-well-does-generative-recommendation-generalize/fig1.png)
+
 整篇论文是一个「分析框架 + 机制解释 + 落地方法」三段式：
 
 1. **第 2 节(定义)**：给出顺序推荐的形式化，把「item transition」作为研究单位，定义记忆类、三种 1-hop 泛化类(传递/对称/二阶对称)、多 hop 泛化(含可替代性 Substitutability)，并对每条测试样本打标(可多标，按 Occam's razor 取最小 hop)。
@@ -59,6 +61,8 @@ unverified: false
 - **前缀算子**:`pref_n(i) ≜ [z_1,…,z_n]`(取前 n 个 token)。
 - **1-hop prefix n-gram memorization 定义**:`(u,i_t)` 满足,当 `∃ u' ∈ D_train, ∃ s≥2, [j_{s-1}→j_s] ⊆ u'`,且 `pref_n(i_{t-1}) = pref_n(j_{s-1})` 与 `pref_n(i_t) = pref_n(j_s)` 同时成立——即**target 转移两端 item 的前 n token 前缀都在训练里出现过,哪怕具体 item 不同**。
 - k=1 时是「记忆」的松弛版;k>1 时类比「可替代性」。后文统称 **token memorization**。
+
+![图2：item 级泛化如何被归约为 GR 的 token 级记忆。左侧 item-ID 模型把 u1/u2/u3 的转移当独立 item 学习,要做「item 级传递性」推理;右侧 semantic-ID GR 把 item tokenize 成共享前缀的 semantic ID(如 (t2,t3,t3)→(t1,t4,t3)),于是同一条 item 级泛化在 token 前缀层面其实是「2-gram 前缀记忆」——GR 因此能在 token 级复用学过的前缀转移来解 item 生成任务。](/ai-papers-daily/figures/how-well-does-generative-recommendation-generalize/fig2.png)
 - **token 记忆支持度**:`C_n(i_{t-k}, i_t) = C(pref_n(i_{t-k}) → pref_n(i_t))`(前缀转移在训练集的计数);对一条样本聚合所有 k-hop:`C_n(u,i_t) = Σ_{k=1}^K C_n(i_{t-k}, i_t)`。
 
 ### 稀释效应的量化(为什么 GR 记不住具体 item)
@@ -112,6 +116,8 @@ unverified: false
 - **数据占比**:所有数据集里记忆样本占比都远小于泛化样本(纯记忆的天花板有限);泛化里大多需组合多条训练样本(单样本可推的可替代性/对称性只占小头);未分类一致 <10%。
 
 ### 主结果 2:token 记忆机制验证
+
+![图3：各 item 级泛化类别(Symmetry / Transitivity / 2nd-Sym. / Uncategorized)在不同前缀长度(N-gram = 4/3/2/1/0)下的 token 记忆比例热力图,横跨 Sports / Beauty / Office / Yelp 四个数据集。可见对称类有更高的 4-gram 记忆比例,传递/二阶对称多归约到短前缀(2~3 gram),未分类几乎只剩 1-gram(最弱支持)。](/ai-papers-daily/figures/how-well-does-generative-recommendation-generalize/fig3.png)
 
 - **item 泛化常归约为 token 记忆**:跨数据集,>99% 的测试样本至少满足 1-gram 前缀记忆;平均 >5% 的 item 级泛化转移(对称/传递/二阶对称)可被 3-hop 前缀记忆解释(见 Fig 4 热力图)。对称类有更高的 4-gram 记忆比例(与可替代性重叠);传递/二阶对称多归约到短前缀(2~3 gram),前缀支持弱 → 任务更难;未分类几乎只剩 1-gram 记忆(最弱支持)。
 - **token 记忆支持度 ↑ → 泛化 ↑**:有前缀支持的样本 NDCG@10 显著高于无支持样本;**TIGER 相对 SASRec 的增益随支持计数 C_n 和前缀长 n 增大而增大**。

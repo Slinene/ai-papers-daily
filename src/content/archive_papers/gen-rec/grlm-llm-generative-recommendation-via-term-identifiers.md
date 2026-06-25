@@ -29,12 +29,16 @@ unverified: false
 
 **GRLM 的答案**: 引入 **Term ID（TID）**——把每个 item 压成**一组语义丰富、标准化的英文关键词**（论文固定长度 5，如 `perfume | feminine | oriental | woody | calvin-klein`）。TID 完全来自 LLM 原生词表，因此天然兼容、语义丰富、无需改架构/扩词表，且因为是自然语言、跨域时不同品类共享词表（"Portable"、"Ergonomic" 当语义桥），实现 zero-effort 知识迁移。
 
+![三类 item identifier 对比：a) 直接用 raw title 易输入难输出、易幻觉；b) Semantic ID 需 Modality Encoder + 量化 tokenizer + 词表扩展 + SID 对齐的复杂流水线；c) Term ID（本文）以 Context-aware Summarization 产出原生文本关键词，结构化高效，仅需 SFT。底部表格显示 TID 在"原生兼容/语义丰富/低幻觉/跨域"四维全面占优。](/ai-papers-daily/figures/grlm-llm-generative-recommendation-via-term-identifiers/fig1.png)
+
 三个关键设计（对应三阶段）：
 1. **Context-aware Term Generation (CTG)**: 不是孤立地给每个 item 生成关键词，而是检索 top-k 相似邻居作为 in-context 参考，让 LLM 对共享属性用一致术语（全局一致，避免 "Cell-Phone" vs "Mobile-Phone" 碎片化）、对独特属性刻意选判别性词（局部判别，避免两个不同 iPhone 都标成 "iPhone"）。
 2. **Integrative Instruction Fine-tuning (IIFT)**: 多任务 SFT，联合优化「item metadata → TID 内化（GTI）」和「用户行为序列预测」，把 LLM 巨大的开放词空间**收敛/蒸馏**到一个聚焦的语义子空间。
 3. **Elastic Identifier Grounding (EIG)**: 推理时双级映射——先精确直映射（Direct Mapping），失败则利用 TID 可分解的结构做结构映射（Structural Mapping），保证近乎 100% 的有效 grounding。
 
 ## 整体实现思路
+
+![GRLM 整体框架：左侧 Context-aware Term Generation 用 embedding 模型检索相似邻居作上下文，经 Prompt 让 LLM 把 item metadata 压成标准化 Term IDs；中间 Integrative Instruction Fine-tuning 联合 Generative Term Internalization（metadata→TID）与 User Sequence Prediction（历史序列→下一 item）两任务做 SFT；右侧 Elastic Identifier Grounding 用 beam search 生成候选 TID 后经 Direct Mapping / Structural Mapping 双级落地到真实 item。](/ai-papers-daily/figures/grlm-llm-generative-recommendation-via-term-identifiers/fig2.png)
 
 三阶段流水线，全程围绕 Term ID：
 
@@ -152,6 +156,8 @@ $$s^* = \arg\max_{i \in C} \sum_{j=1}^{N} w_j \cdot \mathbb{I}(t^j_{gen} = t^j_i
 ### RQ3 Scaling Law
 
 固定 Qwen3-4B-2507 做 term 生成，backbone 换 Qwen3-2504 系列覆盖 **0.6B / 1.7B / 4B / 8B / 14B**。三数据集 Recall 随参数量稳定提升，符合 LLM scaling law——TID 让更大 LLM 更好地利用其语义推理与开放世界知识。
+
+![GRLM 在 Beauty / Sports / Toys 三个 in-domain 数据集上随 backbone 规模（0.6B→14B）的性能曲线：Recall@5（蓝）与 Recall@10（红）均随参数量单调上升，呈现清晰的 scaling 趋势，印证 TID 范式能持续受益于更大 LLM。](/ai-papers-daily/figures/grlm-llm-generative-recommendation-via-term-identifiers/fig3.png)
 
 ### RQ4 幻觉（关键卖点）
 

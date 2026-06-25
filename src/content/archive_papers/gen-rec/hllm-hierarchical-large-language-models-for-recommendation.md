@@ -30,6 +30,8 @@ HLLM 的核心是**分层解耦 + 表征化**：
 
 ## 整体实现思路
 
+![HLLM 总体架构：Item LLM 把商品文本（title/tag/description）末尾追加 [ITEM] 特殊 token，输出单个 item embedding；User LLM 以历史交互的 item embedding 序列 E1..En 为输入，逐位预测下一个 item embedding E'2..E'n+1，两个 LLM 参数不共享且均可训练，经 next-item prediction 优化。](/ai-papers-daily/figures/hllm-hierarchical-large-language-models-for-recommendation/fig1.png)
+
 问题定义：给定用户 u 的按时间排序历史交互 `U={I1,...,In}`，预测下一个 item `I_{n+1}`。每个 item 有 ID 和文本（title/tag 等），但 HLLM **只用文本**（ID 仅在兼容性实验里作为补充特征）。
 
 整体两段式：
@@ -67,6 +69,9 @@ $$L_{gen}=-\sum_{j=1}^{b}\sum_{i=2}^{n}\log\frac{e^{s(E'_{j,i},E_{j,i})}}{e^{s(E
 - **联合（式3）**：next-item 作辅助 loss：`L_dis = λ·L_gen + L_cls`，λ 控制辅助权重，经验上能进一步提点。
 
 ### 判别式两变体
+
+![判别式推荐的两种 User LLM 融合变体：(a) Early Fusion 把目标 item embedding E_tgt 接到用户序列末尾，经 User LLM 做深度交叉后由 Prediction Head 出 logit；(b) Late Fusion 在序列末尾加 [USER] token 抽取与目标无关的用户特征，再与目标 item 一起进 Prediction Head，效率更高、可复用用户特征。](/ai-papers-daily/figures/hllm-hierarchical-large-language-models-for-recommendation/fig2.png)
+
 - **Early Fusion**：目标 item embedding `E_tgt` 接到用户序列末尾 → User LLM 出高阶交叉特征 → 预测头出 logit。效果好（user 与 target 深度交互），但每个候选都要重算 User LLM，难以同时跑大量候选。
 - **Late Fusion**：序列末尾加 `[USER]` token 抽与目标无关的用户特征，用户特征 + 目标 item 一起进预测头。效率高（同一用户特征被所有候选复用），但通常掉点。**在线 A/B 选 Late Fusion**。
 
@@ -108,6 +113,8 @@ $$L_{gen}=-\sum_{j=1}^{b}\sum_{i=2}^{n}\log\frac{e^{s(E'_{j,i},E_{j,i})}}{e^{s(E
 - Item 模型放大（Table 5，User 固定 SASRec）：BERT-Base 110M R@5=2.576 → BERT-Large 340M 3.032 → TinyLlama 1.1B 3.484。
 - User 模型放大（Table 6，Item 固定 TinyLlama）：SASRec 4M 3.484 → Llama-2L 0.1B 3.494 → TinyLlama 1.1B 3.521。
 - 数据量 scaling（Figure 3，Pixel8M 采样 0.1M→8M）：持续涨，无瓶颈；HLLM-1B 只需 ID 模型 1/6~1/4 的数据量即可追平。
+
+![HLLM 在不同数据规模下的性能：横轴为数据量（0.1M→8M），左为 Recall@5、右为 NDCG@5，HLLM-1B 曲线随数据量持续上升无饱和；横向虚线为 HSTU-1B 在 4M/6M/8M 数据上的水平，HLLM-1B 仅用约 1M 数据即可超过 HSTU-1B 用 8M 数据的效果。](/ai-papers-daily/figures/hllm-hierarchical-large-language-models-for-recommendation/fig3.png)
 - 工业集（Table 14，AUC）：Item×User = 1B×1B 0.7458 → 1B×7B 0.7498 → 7B×1B 0.7517 → 7B×7B **0.7533**，双侧放大都涨。
 
 ### RQ3 vs SOTA（Table 7，关键数字）

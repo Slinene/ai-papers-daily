@@ -28,6 +28,8 @@ PLUM 的核心主张：**把物品表示从 embedding 表迁移到离散 token�
 
 ## 整体实现思路
 
+![Semantic ID 模型（SID-v2）总体架构：两路多模态视频 embedding 分别过 DNN Encoder 编码后 Concat & Project，经 5 级 Residual Quantization 多分辨率码本量化为分层 codeword，并以渐进掩码加权求和；右侧 DNN Decoder 重建各模态（Reconstruction Loss），同时用 MLP 投影对共现视频对（Co-occurring Pairs）施加 Contrastive Loss。](/ai-papers-daily/figures/plum-adapting-pretrained-lms-generative-recommendations/fig1.png)
+
 三阶段串联，每阶段产出下游阶段的输入：
 
 - **SID 模型**离线训练好后，对全量 item corpus 做量化，得到每个 video 的 SID 元组（5 级 codeword）。这套 SID 词表是后续所有阶段的「物品语言」。
@@ -78,6 +80,8 @@ $$\mathcal{L} = \mathcal{L}_{recon} + \mathcal{L}_{rq} + \mathcal{L}_{con}$$
 **训练配置**：50%/50% 混合；1M steps，batch size 16，约 **260B tokens**。评测三块：基于用户历史生成 SID 的性能、held-out 视频元数据上 SID+语言联合建模能力、标准文本 benchmark 上通用语言能力退化追踪。CPT 后模型保留自由文本生成 + few-shot ICL 能力（附录例子：能在「The video <SID> is about ___」few-shot prompt 下续写语义合理的短语；而随机初始化的相同 recs 续训模型无法形成连贯短语、分不清 SID 与文本 token）。
 
 ### 3. 生成式召回 SFT
+
+![生成式召回示意：输入 prompt 是 SID token、文本特征、数值特征 custom token 交错的序列（watch_history + user features + context_video），喂给 Decoder-only LLM 自回归生成下一个视频的 SID（如 A5 B25 … H55 + EOS），beam search 解码出候选。](/ai-papers-daily/figures/plum-adapting-pretrained-lms-generative-recommendations/fig2.png)
 
 从 CPT checkpoint 出发，标准自回归最大似然，预测 ground-truth 视频（用户日志中 clicked 视频）的 SID token：
 

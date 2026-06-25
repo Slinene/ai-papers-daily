@@ -42,6 +42,8 @@ M6-base 是单个 Transformer：L=24 层、H=16 头、d=1024 隐维，约 300M �
 
 ### Option tuning（核心，1% 参数胜过 fine-tuning）
 
+![图：Option tuning（图 2）。复用最后几个 soft prompt（soft options）直接充当 softmax 分类层参数，而非另起线性分类头；图中 3 个 soft prompt 中有 2 个作为 soft options，仅训练 soft prompt 与 [EOS] 等特殊 token、冻结 M6 主干。左为类 UniLM 的双向/自回归分区，右为对应的注意力掩码。](/ai-papers-daily/figures/m6-rec-generative-pretrained-language-models-are-open-ended/fig1.png)
+
 Prompt tuning 在输入前拼接若干可训练 embedding 作"soft prompt"替代离散文本提示，只训 soft prompt、冻结主干。已知问题是**收敛慢**。M6-Rec 的改法：**复用最后 C 个 soft prompt（图中 option embeddings）直接充当 softmax 分类层的参数**（C = 类别数），而不是另起一个可学习线性分类头。直觉是把"答案选项"以 soft prompt 形式写进任务描述里，故名 option tuning。实验证明它比独立线性分类头收敛更好。
 
 进一步叠加 adapter，得到 **option-adapter tuning**：在每层 Transformer 的 FFN 上加一个低秩 adapter，第 l 层 FFN 改为
@@ -51,6 +53,8 @@ FFN(l)(Z) = FFN(l)(Z) + λ(l) · [ σ(Z·W1(l) + b1(l)) · W2(l) + b2(l) ]
 其中 Z ∈ R^{B×d}（B 批大小），W1(l) ∈ R^{d×r}、b1(l) ∈ R^{1×r}、W2(l) ∈ R^{r×d}、b2(l) ∈ R^{1×d}、λ(l) ∈ R 均可训练，r ≪ d。总可训练参数约占主干的 **1%**。
 
 ### Multi-segment late interaction（低延迟实时推理）
+
+![图：Multi-segment late interaction 实现 CTR 预测（图 3）。把用户/候选特征切成细粒度 segment（如每个点击 item 一段：female user、Ray-Ban 太阳镜、Timberland 登山靴、搜索 query Hiking Gear 等），各段独立过前 L′ 层并离线缓存；请求到来时只跑最后 L−L′ 层做跨段特征交互输出 Label 0/1，从而在低延迟下动态拼入用户最新行为。](/ai-papers-daily/figures/m6-rec-generative-pretrained-language-models-are-open-ended/fig2.png)
 
 原始 late interaction（如 ColBERT/TwinBERT）只在两个粗粒度实体间做。M6-Rec 扩展为多段细粒度。核心：**前 L′ 层离线预计算并缓存，请求到来时只跑最后 L−L′ 层做特征交互，取 L−L′ ≤ 3 保证低延迟**。
 

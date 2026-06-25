@@ -35,6 +35,8 @@ OnePiece 就是把这两件事**第一次**系统性地、可部署地搬进工�
 
 ## 整体实现思路
 
+![OnePiece 总体架构：召回模式 (a) 与排序模式 (b) 共享同一纯 Transformer backbone。两种模式都用结构化上下文工程构造统一输入 token，再经块级隐式推理迭代精炼表征，并由渐进式多任务损失监督；召回额外接 Item Encoder 双塔，排序把候选集 CIS 拼入单塔联合打分。](/ai-papers-daily/figures/onepiece-context-engineering-reasoning-cascade-ranking/fig1.png)
+
 OnePiece 是**召回与排序共享的统一纯 Transformer 框架**，三个组件：
 
 1. **Context Engineering（输入 token 序列）**：把 4 类异构信号 tokenize 成统一序列——交互历史 IH、偏好锚点 PA、情境描述符 SD、候选集 CIS（仅排序）。召回/排序共享 IH/PA/SD 构造，排序额外拼 CIS 实现单塔联合打分。
@@ -46,6 +48,8 @@ OnePiece 是**召回与排序共享的统一纯 Transformer 框架**，三个组
 ## 子模块实现（可复现细节）
 
 ### 1. 结构化上下文工程
+
+![上下文工程与 tokenizer 设计：召回与排序共享交互历史 IH、偏好锚点 PA（BOS/EOS 包裹的多组辅助序列）、情境描述符 SD（User/Query token）的构造；每路经各自 Embedding Layer + Concat & MLP + 位置嵌入打包成统一 token 序列，排序额外把候选集 CIS token 拼到序列尾部以在单塔内联合打分。](/ai-papers-daily/figures/onepiece-context-engineering-reasoning-cascade-ranking/fig2.png)
 
 每个实体(user/query/item)用 entity-specific embedding 函数 φ 把类别+连续特征映射成拼接向量，再用轻量 MLP 投影头 Proj 统一到 backbone 的 d 维隐空间。**IH 与 PA 共享 `Proj_shared`**，user / query / candidate 各有独立投影层。
 
@@ -141,6 +145,8 @@ PA 长度有清晰 **scaling 效应**：V1 仅 raw item ID → V2 加 side info(
 - 渐进式 > 单 embedding 多任务：把不同任务分散到多个推理步当「专用 read-out token」，**解耦梯度流、避免梯度冲突**。召回最优 2 步(曝光-点击)、排序最优 3 步(完整转化漏斗)。
 
 ### 数据与推理 scaling
+
+![召回(左 Recall@100)与排序(右 Click AUC)随训练数据跨度(天)的收敛曲线：OnePiece 仅 7–10 天即超越 DLRM/HSTU，两条 baseline 很快 plateau，而 OnePiece 到 60 天仍持续上升且差距不断拉大，体现更强的数据 scaling 能力。](/ai-papers-daily/figures/onepiece-context-engineering-reasoning-cascade-ranking/fig3.png)
 
 - **数据 scaling**：OnePiece 仅 **7–10 天**训练就超 DLRM/HSTU；DLRM/HSTU 很快 plateau，OnePiece 到 60 天仍在涨且 gap 拉大，未收敛。
 - **block size scaling**(60 天，排序，Table 6)：M=C 从 1→12，C-AUC 0.885→0.913→0.920→**0.927**(+4.7%)。最大跃升在 1→4(pointwise 缺跨样本对比)，之后边际递减(块过大冗余饱和)。

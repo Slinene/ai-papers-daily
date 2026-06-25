@@ -36,6 +36,8 @@ unverified: false
 
 ## 整体实现思路
 
+![UniRec 整体架构总览：Tokenization 阶段用 Capacity-constrained Semantic ID（RQ-KMeans + 超载簇 Repair）把多模态 embedding 量化成 codebook0/1/2 三层 SID；Architecture 主干为 Decoder-Only，对 User Sequence 做 Gated-CrossAttn（行为序列当 K/V），解码侧「bos + 属性 a1/a2/a3 + SID s0/s1/s2」过 RMSNorm/MMoE-FFN，再经 Hierarchical Rank Head（含 content summary 的 hash 组合特征）逐步出 token；Alignment 阶段 NTP/Reweight/layer-wise Stop Gradient 驱动 RFT Loss + DPO Loss 联合优化（L = L_RFT + λ_DPO·L_DPO）。](/ai-papers-daily/figures/unirec-bridging-generative-discriminative-recommendation/fig1.png)
+
 UniRec 把召回与排序融进**统一的自回归解码**：每个 item = 多层 SID + 前缀属性 token。Decoder-Only backbone，对 user 行为序列做 **Cross-Attention**（行为序列当 K/V，解码侧「BOS + 属性 + SID」当 Q），每个解码步一个专属 **Rank Head** 出 token 分布。整条 pipeline：
 
 - **3.2 Capacity-constrained SID**：曝光加权的残差量化（RQ-KMeans 改造），保证 codebook 负载均衡，治本马太效应。
@@ -49,6 +51,8 @@ UniRec 把召回与排序融进**统一的自回归解码**：每个 item = 多�
 ## 子模块实现（可复现细节）
 
 ### 3.2 Capacity-constrained Semantic ID
+
+![标准 RQ-KMeans 下 SID 各层曝光集中度。左图 Lorenz 曲线：sid0 单层 top-10% token 仅占 33.2% 曝光（接近对角线、温和倾斜），但 (s0,s1) 组合 top-10% 占 87.9%、(s0,s1,s2) top-10% 占 89.62%（曲线急剧上凸）。右图按 token 使用频次分桶的增量曝光分布：sid0-1 在最热的 0-1 桶贡献 49.1%、sid0-1-2 达 57.3%，说明组合层级把轻微 item-count 不均放大成极端流量集中——这是 Capacity-constrained SID 要治的「世袭马太效应」。](/ai-papers-daily/figures/unirec-bridging-generative-discriminative-recommendation/fig2.png)
 
 **动机（量化的马太效应）**：用生产流量统计 SID 各层曝光集中度。第一层 \(s_0\) top-10% token 占 33.24% 曝光（温和倾斜）；但 \((s_0,s_1)\) 组合 top-10% 占 **87.90%**，\((s_0,s_1,s_2)\) top-10% 占 89.62%。从 \(s_0\) 到 \(s_1\) **2.6× 放大**——轻微 item-count 不均被组合级放大成极端流量集中。标准均衡量化只约束「每簇 item 数」相等，但热门 item 仍霸占其 codebook entry 的曝光。
 
@@ -187,6 +191,8 @@ Q^{(0)}=\text{PosEnc}([e_{\text{BOS}}\oplus e_{\text{attr}}\oplus e_0\oplus e_1\
 | (c) \(d_{\text{model}}=512\) | 0.557 | 0.639 | 0.712 |
 
 - Capacity-constrained SID：去掉后 HR@50 0.537→0.481；top-1% token 曝光占比从 26.04% 恶化到 57.33%。
+
+![Capacity-constrained SID 对 codebook 利用率的修复效果（RQ-KMeans 粉色 vs Capacity-constrained 蓝色，分别看 top-1%/5%/10% 最热 token 捕获的总曝光占比，三组柱按 sid0 / sid0-1 / sid0-1-2 层级）。在完整三层 sid0-1-2 上，top-1% token 曝光占比从 RQ-KMeans 的 57.33% 压到 26.04%，top-5% 从 81.73% 降到 67.55%，top-10% 从 86.62% 降到 77.77%——曝光加权残差量化把负载从少数热门 token 摊平，越往细粒度层级修复越显著，值越低代表 codebook 利用越均衡。](/ai-papers-daily/figures/unirec-bridging-generative-discriminative-recommendation/fig3.png)
 - Task-Cond. BOS / Content Summary：去掉分别 HR@100 相对 -7.8% / -8.6%，二者解决正交问题。
 - Scaling：\(d_{\text{model}}\) 64→512 单调提升，仍有放大空间。
 
