@@ -5,7 +5,7 @@ affiliation: UCLA
 date: 2025-10
 venue: arXiv / OpenReview
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: 把 simulator 从对话域推到 GUI / digital world 域：LLM 既模拟用户，也模拟 UI 状态、应用响应、网页变化，配合 guided
   rollout 与 trajectory wrapper 给 GUI agent 生成多样训练轨迹。

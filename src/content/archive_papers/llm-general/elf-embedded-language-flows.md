@@ -4,9 +4,9 @@ authors: "Keya Hu*, Linlu Qiu*, Yiyang Lu, Hanhong Zhao, Tianhong Li, …, Kaimi
 affiliation: MIT
 date: 2026-05
 venue: arXiv preprint
-topic: diffusion-llm
-topic_name: Diffusion LLM
-topic_icon: 🌀
+topic: llm-general
+topic_name: LLM通用
+topic_icon: 🧠
 idea: 把 Diffusion Language Model 的「连续」推到极致——从 token embedding 起，整条 denoise 轨迹都待在连续 embedding 空间，只在最后一步 t=1 才离散化；而且 denoiser 和 decoder 共享同一份网络权重（用 mode token 切分支），没有独立 decoder。配合 x-prediction + Flow Matching 的 rectified-flow 路径，让 image-domain 的 CFG / SDE 采样器自然迁移过来。
 paperUrl: https://arxiv.org/abs/2605.10938
 codeUrl: https://github.com/lillian039/ELF

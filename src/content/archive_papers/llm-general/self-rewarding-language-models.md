@@ -4,9 +4,9 @@ authors: Weizhe Yuan, Richard Yuanzhe Pang, Kyunghyun Cho, …, Jason Weston
 affiliation: Meta AI / NYU
 date: 2024-01
 venue: arXiv (later ICML 2024)
-topic: agent-rl
-topic_name: Agent RL
-topic_icon: 🤖
+topic: llm-general
+topic_name: LLM通用
+topic_icon: 🧠
 idea: Actor 与 Judge 合一：模型用 LLM-as-a-Judge 给自己生成的多个回答打分，组成偏好对做迭代 DPO。Instruction following
   和 Judge 能力同步上升。
 paperUrl: https://arxiv.org/abs/2401.10020

@@ -4,9 +4,9 @@ authors: Yuecheng Li, Zeyu Song, Jing Yao, …, Peng Jiang, Kun Gai (6 人)
 affiliation: Kuaishou (快手)
 date: 2026-06
 venue: arXiv
-topic: llm4rec
-topic_name: LLM4Rec
-topic_icon: 🛒
+topic: gen-rec
+topic_name: 生成式推荐
+topic_icon: 🎯
 idea: |
   把 LLM 当推荐增强器，针对其后训练两个卡点给出系统解法：SFT 阶段用「目标物品 PPL」把开放域推荐 CoT 的质量从不可度量变成可计算标量；RL 阶段用 POPO 自适应权衡「LLM 语义奖励」与「推荐协同 ID 奖励」，达到两目标 Pareto 最优而非此消彼长。已在快手广告上线服务 4 亿+ 日活。
 paperUrl: https://arxiv.org/abs/2606.03866

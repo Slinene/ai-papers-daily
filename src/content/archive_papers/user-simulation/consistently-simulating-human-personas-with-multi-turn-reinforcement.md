@@ -7,7 +7,7 @@ affiliation: UC Berkeley × UW
 date: 2025-11
 venue: NeurIPS 2025
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: Off-the-shelf LLM 当 persona 用户会 drift。定义 prompt-to-line / line-to-line / Q&A
   三类 consistency 指标作为 RL reward，对 patient / student / social chat partner 三个 role

@@ -4,8 +4,8 @@ authors: Siru Ouyang, Jun Yan, Yanfei Chen, Rujun Han, Chen-Yu Lee 等 (15 人)
 affiliation: UIUC × Google Cloud AI Research × MIT
 date: 2026-05
 venue: arXiv
-topic: agent-rl
-topic_name: Agent RL
+topic: agent-general
+topic_name: Agent通用
 topic_icon: 🤖
 idea: >-
   首篇把 "skill curation 本身" 升级为 RL 训练目标的 agent self-evolution 框架。冻结 executor + 训 8B

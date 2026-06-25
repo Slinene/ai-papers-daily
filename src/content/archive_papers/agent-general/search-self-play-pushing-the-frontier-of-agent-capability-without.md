@@ -4,8 +4,8 @@ authors: Hongliang Lu, Yuhang Wen, Pengyu Cheng, …, Guanjun Jiang
 affiliation: Alibaba (Qwen Applications)
 date: 2025-10
 venue: arXiv (v2 2025-12)
-topic: agent-rl
-topic_name: Agent RL
+topic: agent-general
+topic_name: Agent通用
 topic_icon: 🤖
 idea: 同一 LLM 同时扮演 task proposer 与 problem solver；用 RAG 验证 proposer 出的题有 ground truth，从而无需人工标注就能持续提升
   deep-search agent。

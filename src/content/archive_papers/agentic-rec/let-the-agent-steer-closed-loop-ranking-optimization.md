@@ -4,9 +4,9 @@ authors: Yin Cheng, Liao Zhou, Xiyu Liang, Dihao Luo, …, Jian Dong, Andy Zhang
 affiliation: Shopee
 date: 2026-03
 venue: arXiv (Sortify Technical Report)
-topic: agent-auto-research
-topic_name: Agent Auto-Research
-topic_icon: 🔬
+topic: agentic-rec
+topic_name: Agent推荐
+topic_icon: 🧭
 idea: 把电商排序调参重构为持续的「影响力交换」，交给一个全自治的 LLM 智能体闭环优化。关键不是让 LLM 直接调那 7 个排序权重，而是让它当「二阶元控制器」：站在更高一层校准「线下指标↔线上效果」的迁移映射(Belief 通道)和约束惩罚强度(Preference 通道)——两者按 Savage 主观期望效用公理正交解耦(信念 vs 偏好)，底层用 Optuna TPE 搜参，Memory DB 跨轮沉淀经验，4 小时一轮全程无人。整个项目(9.8 万行代码+30 轮实验+本报告)号称由一人指挥 AI agent 群完成，是「AI 造 AI」的范式样本。
 paperUrl: https://arxiv.org/abs/2603.27765
 codeUrl: null

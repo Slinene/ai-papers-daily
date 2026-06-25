@@ -4,9 +4,9 @@ authors: "Hongcan Guo, Qinyu Zhao, Yian Zhao, Shen Nie, Rui Zhu, …, Yan Zeng (
 affiliation: ByteDance Seed × HKU × ANU × PKU × RUC
 date: 2026-05
 venue: arXiv (Seedance Team Research)
-topic: diffusion-llm
-topic_name: Diffusion LLM
-topic_icon: 🌀
+topic: llm-general
+topic_name: LLM通用
+topic_icon: 🧠
 idea: 把扩散建模从「对 token 做 observation recovery」升级为「对连续隐变量做 prior transport」：先用 Text VAE 学文本↔latent 的稳定映射，再用 block-causal DiT + Flow Matching 在 latent 空间学 global semantic prior，最后由 conditional decoder 实现局部 token。用 unified Markov-path view 把自身与 AR / LLaDA / Plaid 在理论上完全区分。
 paperUrl: https://arxiv.org/abs/2605.06548
 codeUrl: https://hongcanguo.github.io/Cola-DLM/

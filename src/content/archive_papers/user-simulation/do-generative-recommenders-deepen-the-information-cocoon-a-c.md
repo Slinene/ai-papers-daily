@@ -5,7 +5,7 @@ affiliation: Shandong University × Renmin University of China
 date: 2026-06
 venue: arXiv (投 ACM TOIS)
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: 用 LLM 当用户搭闭环仿真台 RecLoop（双记忆 + 周期反思 agent，推荐器每轮重训，跑 15 轮），系统量化生成式推荐 vs 传统 ID 序列推荐的信息茧房。结论：生成式更抗曝光层茧房（用户间 Jaccard 0.064 vs SASRec 0.223），但茧房转移进了 code 空间、集中在粗层（首 token 熵降 49.6%）；并首创 Code-Space 结构性茧房指标。
 paperUrl: https://arxiv.org/abs/2606.17707

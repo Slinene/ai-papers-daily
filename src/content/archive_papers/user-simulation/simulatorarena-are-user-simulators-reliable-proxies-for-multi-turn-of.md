@@ -6,7 +6,7 @@ affiliation: 待确认
 date: 2025-10
 venue: EMNLP 2025 Main
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: 不是构造方法，而是评估 simulator 本身可不可靠的 benchmark。909 条人–LLM 标注对话覆盖数学辅导 / 文档创作两类任务，从 "模拟消息像不像真人"
   与 "对 assistant 的评分像不像真人评分" 两维度打分。

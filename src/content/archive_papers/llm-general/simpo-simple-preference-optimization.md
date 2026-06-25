@@ -4,9 +4,9 @@ authors: "Yu Meng*, Mengzhou Xia*, Danqi Chen (3 人; *Equal)"
 affiliation: University of Virginia × Princeton PLI
 date: 2024-05
 venue: NeurIPS 2024
-topic: gen-rec
-topic_name: 生成式推荐
-topic_icon: 🎯
+topic: llm-general
+topic_name: LLM通用
+topic_icon: 🧠
 idea: 把 DPO 的 implicit reward 重新设计为「序列平均 log-likelihood × β」，整段抛掉 reference model；同时在 Bradley-Terry 目标里加一个 target margin γ，强迫胜者 reward 比败者高出至少 γ。核心洞察：DPO 训练用的 reward 跟推理时的 generation metric (avg log-prob) 根本不对齐——SimPO 让两者完全一致，所以更稳更强。虽然原论文聚焦 chat 对齐，但对生成式推荐场景天然契合：去 ref-model 节省的显存在百万级 item vocab 下放大一个数量级；length-norm 直接化解长 session 推荐的 length-bias 病。
 paperUrl: https://arxiv.org/abs/2405.14734
 codeUrl: https://github.com/princeton-nlp/SimPO

@@ -7,7 +7,7 @@ affiliation: Meituan
 date: 2025-08
 venue: arXiv / OpenReview
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: 首次把 LLM 模拟用户接进 agent 的 RL rollout 里。GRPO + 真实数据库环境验证 tool call 结果，并配两条 cold-start
   数据合成 pipeline（LLM 模拟工具响应 vs. 真实 MCP server）。

@@ -6,7 +6,7 @@ affiliation: UIUC
 date: 2025-07
 venue: arXiv (v3 2026-03)
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: 提出 User Goal State Tracking (UGST)：把用户 goal 显式拆成 Profile/Policy、Task Objective、Requirements/Preferences
   三块结构化跟踪，再用 inference-time steering → SFT → GRPO 三阶段把 simulator 训得不 drift。

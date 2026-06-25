@@ -7,8 +7,8 @@ export const prerender = true;
 
 const all = await getCollection('archive_papers');
 
-// Group by topic, preserve a stable order (agent-rl first, then user-simulation, then gen-rec, etc.)
-const ORDER = ['agent-rl', 'user-simulation', 'gen-rec'];
+// Group by topic, preserve a stable order matching the 6 canonical categories.
+const ORDER = ['agentic-rec', 'gen-rec', 'user-simulation', 'gen-search', 'llm-general', 'agent-general'];
 type TopicGroup = {
   id: string;
   name: string;

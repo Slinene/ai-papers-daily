@@ -5,8 +5,8 @@ authors: Shan He, Runze Wang, Zhuoyun Du, Huiyu Bai, Zouying Cao, Yu Cheng, Bo Z
 affiliation: Future Living Lab of Alibaba（阿里巴巴）
 date: 2026-04
 venue: arXiv
-topic: agent-rl
-topic_name: Agent RL
+topic: agent-general
+topic_name: Agent通用
 topic_icon: 🤖
 idea: 把 MAS 抽象成一张 "文本参数图"（agent / tool / workflow 都是可优化节点），用 GRAO（Group Relative
   Agent Optimization）做元学习式的图优化，使多 agent 系统能自动 debug 自己。

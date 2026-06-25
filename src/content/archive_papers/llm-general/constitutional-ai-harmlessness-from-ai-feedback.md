@@ -4,9 +4,9 @@ authors: Yuntao Bai, Saurav Kadavath, Sandipan Kundu, …, Jared Kaplan (51 人)
 affiliation: Anthropic
 date: 2022-12
 venue: arXiv
-topic: agent-rl
-topic_name: Agent RL
-topic_icon: 🤖
+topic: llm-general
+topic_name: LLM通用
+topic_icon: 🧠
 idea: 提出 RLAIF：用一组人写好的 "宪法" 原则替代逐条人工标注，让模型自我批评+修订自己的回答，再用 AI 偏好做奖励信号。是 Self-Rewarding
   类工作的精神鼻祖。
 paperUrl: https://arxiv.org/abs/2212.08073

@@ -5,8 +5,8 @@ authors: Guanting Dong, Junting Lu, Junjie Huang, …, Ji-Rong Wen, Zhicheng Dou
 affiliation: ByteDance Seed × 人民大学
 date: 2026-04
 venue: arXiv (Working in progress)
-topic: agent-rl
-topic_name: Agent RL
+topic: agent-general
+topic_name: Agent通用
 topic_icon: 🤖
 idea: 端到端 "环境 + agent 共进化" arena：自动从真实主题挖环境、生工具、合成可验证任务，再用多环境 RL 训 agent，由 self-evolving
   arena 自动诊断短板、定向扩环境。共合成 1978 环境 / 19822 工具，平均任务 >15 轮交互。

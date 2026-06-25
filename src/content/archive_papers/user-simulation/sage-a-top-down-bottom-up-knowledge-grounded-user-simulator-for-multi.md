@@ -6,7 +6,7 @@ affiliation: Columbia University
 date: 2025-10
 venue: EACL 2026 Findings
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: Simulator 不能脱离业务知识：Top-down 用 ideal customer profile / persona 灌入业务逻辑，Bottom-up
   把 agent infra 的商品目录、FAQ、知识库灌进 simulator，让用户 "知道自己要什么、要怎么问"。比基线多发现 33% 的 agent error。

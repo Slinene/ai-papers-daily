@@ -5,7 +5,7 @@ affiliation: Salesforce AI Research
 date: 2025-09
 venue: arXiv
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: 统一 gym 环境 + LLM 模拟用户的 user-centric agent RL 框架。系统比较 turn-level 与 trajectory-level
   reward 设计，结论：SFT cold-start 必要、deliberate trajectory scoring 更优、开源 simulator (Qwen3-32B)

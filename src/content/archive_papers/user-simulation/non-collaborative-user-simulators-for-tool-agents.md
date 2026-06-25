@@ -5,7 +5,7 @@ affiliation: Seoul National University
 date: 2025-09
 venue: arXiv / OpenReview
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: 现有 simulator 默认用户配合，太理想。提出能模拟四类不配合行为的 simulator：请求不存在服务 / 跑题 / 不耐烦 / 信息不全；同时保证关键
   intent 与信息最终能被传达，让训练信号不假。

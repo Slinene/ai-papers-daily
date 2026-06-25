@@ -5,7 +5,7 @@ affiliation: Sierra Research
 date: 2025-06
 venue: arXiv
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: τ-bench 的升级版：把环境改成 dual-control——LLM 模拟用户也能调工具。新增 Telecom 域用 Dec-POMDP 建模；附带可程序化生成
   diverse / verifiable 任务的 task generator；user simulator 与环境紧耦合保证可靠性。

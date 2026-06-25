@@ -6,7 +6,7 @@ affiliation: CMU × OpenHands
 date: 2025-11
 venue: arXiv
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: UserVille 把精确指令 "打散" 成模糊用户输入并配多种交互偏好的 simulator；PPP 是多目标 RL，联合优化 productivity（完成度）+
   proactivity（主动澄清）+ personalization（适配偏好）。

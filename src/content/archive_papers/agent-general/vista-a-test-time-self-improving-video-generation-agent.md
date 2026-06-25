@@ -4,8 +4,8 @@ authors: Long, Wan et al.
 affiliation: Google Research
 date: 2025-10
 venue: arXiv
-topic: agent-rl
-topic_name: Agent RL
+topic: agent-general
+topic_name: Agent通用
 topic_icon: 🤖
 idea: Test-time 多 agent 闭环：分解 → 多组 prompt 生成视频 → pairwise tournament 选最优 → 视/音/上下文三
   critic 出反馈 → 重写 prompt → 再生成。完全 black-box，对底层 T2V 模型零修改。

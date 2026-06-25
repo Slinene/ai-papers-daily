@@ -5,9 +5,9 @@ authors: DeepSeek-AI Team (Daya Guo et al., 200+ 人)
 affiliation: DeepSeek
 date: 2025-01
 venue: Nature 645:633-638 (2025) · arXiv v2 2026-01
-topic: agent-rl
-topic_name: Agent RL
-topic_icon: 🤖
+topic: llm-general
+topic_name: LLM通用
+topic_icon: 🧠
 idea: 证明纯 RL（GRPO + 规则可验证奖励）就能涌现出 self-reflection / verification / aha moment；R1-Zero
   完全不用 SFT 冷启动，R1 加少量 cold-start SFT 修可读性。
 paperUrl: https://arxiv.org/abs/2501.12948

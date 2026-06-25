@@ -5,7 +5,7 @@ affiliation: Alibaba Group
 date: 2026-05
 venue: arXiv (Tech Report)
 topic: user-simulation
-topic_name: User Simulation
+topic_name: User Simulator
 topic_icon: 👥
 idea: 把 user profiling 从 "判别 + 离散标签" 改为 LLM 生成 narrative summary。配套四模块用户行为仿真引擎（BDI 三层 Persona-Need-Intent + Markov 状态机 + 跨平台 Tool Graph + QA 校验）造合成轨迹，再用 Curriculum SFT + DF-GRPO 训 8B；HPR-Bench 上 Avg@10 0.7325 / AccEx 0.7528，行为序列压缩 97.9%。
 paperUrl: https://arxiv.org/abs/2605.08766

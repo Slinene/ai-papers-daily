@@ -5,7 +5,7 @@ affiliation: Renmin University of China (人民大学高瓴) × Meituan (美团)
 date: 2026-03
 venue: arXiv
 topic: agentic-rec
-topic_name: Agentic Recommendation
+topic_name: Agent推荐
 topic_icon: 🧭
 idea: |
   把推荐系统的最终产物从「一串商品列表」重定义为「一份帮用户做决策的研究报告」——借 Deep Research 范式让系统替用户去逛、去比、去综合。双 Agent：T5+GRPO 的轨迹模拟 Agent 生成「探索→决策」行为轨迹并召回候选，DeepSeek 驱动的自进化报告 Agent 把候选按多维兴趣拆成榜单+理由写成报告。核心是交互范式从「被动过滤器」转向「主动 agent 助理」。

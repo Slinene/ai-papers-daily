@@ -4,9 +4,9 @@ authors: Tianyi Li, Zixuan Wang, Guidong Lei, Xiaodong Li, Hui Li
 affiliation: Xiamen University
 date: 2026-03
 venue: arXiv (Conference'17 submission)
-topic: agent-rl
-topic_name: Agent RL
-topic_icon: 🤖
+topic: agentic-rec
+topic_name: Agent推荐
+topic_icon: 🧭
 idea: 把推荐 agent 的 "想 → 调工具 → 输出排序列表" 整条 ReAct 轨迹用 list-wise GRPO（reward = NDCG@K）端到端训练并证明梯度无偏；再叠一个 Progressive Preference Refinement 阶段，自挖 ranking 违例做硬负样本对、用 bidirectional preference 双向打磨，把 pairwise 排序误差的凸上界压紧。
 paperUrl: https://arxiv.org/abs/2603.21613
 codeUrl: null
