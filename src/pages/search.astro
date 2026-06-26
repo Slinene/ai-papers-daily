@@ -1,0 +1,234 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+export const prerender = true;
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+// --- archive_papers (论文沉淀) ---
+const archive = await getCollection('archive_papers');
+const archiveIndex = archive.map((p: any) => {
+  const slugTail = p.slug.split('/').pop();
+  return {
+    src: 'collection' as const,
+    srcLabel: '论文沉淀',
+    title: p.data.title,
+    cat: p.data.topic_name || p.data.topic || '',
+    catId: p.data.topic || '',
+    date: p.data.date || '',          // free-form YYYY-MM
+    one: p.data.idea || '',
+    tags: p.data.tags || [],
+    authors: p.data.authors || '',
+    href: `${base}/collection/${p.data.topic}/${slugTail}`,
+  };
+});
+
+// --- papers (历史每日推送) ---
+const papers = await getCollection('papers');
+const papersIndex = papers.map((p: any) => ({
+  src: 'daily' as const,
+  srcLabel: '历史推送',
+  title: p.data.title,
+  title_zh: p.data.title_zh || '',
+  cat: p.data.direction || p.data.category || '',
+  catId: p.data.category || '',
+  date: p.data.collected.toISOString().slice(0, 10),
+  one: p.data.one_liner || '',
+  tags: p.data.tags || [],
+  authors: (p.data.authors || []).join(', '),
+  score: p.data.score,
+  depth: p.data.depth,
+  href: `${base}/paper/${p.slug}`,
+}));
+
+// Newest first within each source
+archiveIndex.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+papersIndex.sort((a, b) => b.date.localeCompare(a.date));
+
+const allIndex = [...archiveIndex, ...papersIndex];
+const totalArchive = archiveIndex.length;
+const totalPapers = papersIndex.length;
+---
+<BaseLayout title="检索 · AI Papers Daily" description="检索论文沉淀与历史每日推送中的论文">
+  <header class="collection-header">
+    <h2>检索</h2>
+    <p class="collection-tagline">
+      在 <strong>{totalArchive}</strong> 篇沉淀 + <strong>{totalPapers}</strong> 篇历史推送中检索 ·
+      支持标题 / 一句话 / 标签 / 作者
+    </p>
+  </header>
+
+  <div class="search-controls">
+    <input
+      id="search-input"
+      type="search"
+      class="search-input"
+      placeholder="输入关键词，如：reward model / 推荐系统 / agent ..."
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <div class="tab-bar" role="tablist" aria-label="检索来源">
+      <button type="button" class="tab" data-source="all" role="tab" aria-selected="true">
+        <span class="tab-name">全部</span>
+        <span class="tab-count" id="cnt-all">{allIndex.length}</span>
+      </button>
+      <button type="button" class="tab" data-source="collection" role="tab" aria-selected="false">
+        <span class="tab-icon">📚</span>
+        <span class="tab-name">论文沉淀</span>
+        <span class="tab-count" id="cnt-collection">{totalArchive}</span>
+      </button>
+      <button type="button" class="tab" data-source="daily" role="tab" aria-selected="false">
+        <span class="tab-icon">📰</span>
+        <span class="tab-name">历史推送</span>
+        <span class="tab-count" id="cnt-daily">{totalPapers}</span>
+      </button>
+    </div>
+  </div>
+
+  <p id="search-status" class="search-status">输入关键词开始检索，留空可浏览全部。</p>
+
+  <ul id="search-results" class="search-results"></ul>
+
+  <script id="search-index" type="application/json" set:html={JSON.stringify(allIndex)}></script>
+
+  <script is:inline>
+    (function () {
+      const idxEl = document.getElementById('search-index');
+      if (!idxEl) return;
+      let INDEX = [];
+      try { INDEX = JSON.parse(idxEl.textContent || '[]'); } catch (_) { INDEX = []; }
+
+      const input = document.getElementById('search-input');
+      const status = document.getElementById('search-status');
+      const list = document.getElementById('search-results');
+      const tabs = document.querySelectorAll('.tab[data-source]');
+
+      let currentSource = 'all';
+      let currentQuery = '';
+
+      function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+        });
+      }
+
+      function highlight(text, terms) {
+        const safe = escapeHtml(text);
+        if (!terms.length) return safe;
+        const pattern = terms
+          .filter(Boolean)
+          .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+          .join('|');
+        if (!pattern) return safe;
+        return safe.replace(new RegExp('(' + pattern + ')', 'gi'), '<mark>$1</mark>');
+      }
+
+      function matches(item, terms) {
+        if (!terms.length) return true;
+        const hay = [
+          item.title,
+          item.title_zh,
+          item.one,
+          item.cat,
+          item.authors,
+          (item.tags || []).join(' '),
+        ].join('  ').toLowerCase();
+        return terms.every((t) => hay.indexOf(t) !== -1);
+      }
+
+      function render() {
+        const q = currentQuery.trim().toLowerCase();
+        const terms = q ? q.split(/\s+/).filter(Boolean) : [];
+
+        const pool = INDEX.filter((it) => currentSource === 'all' ? true : it.src === currentSource);
+        const hits = pool.filter((it) => matches(it, terms));
+
+        // Update count badges (reflect both source + query)
+        const fullPool = INDEX.filter((it) => matches(it, terms));
+        document.getElementById('cnt-all').textContent = String(fullPool.length);
+        document.getElementById('cnt-collection').textContent = String(
+          fullPool.filter((it) => it.src === 'collection').length
+        );
+        document.getElementById('cnt-daily').textContent = String(
+          fullPool.filter((it) => it.src === 'daily').length
+        );
+
+        if (!q && currentSource === 'all') {
+          status.textContent = '输入关键词开始检索，留空可浏览全部。';
+        } else if (hits.length === 0) {
+          status.textContent = '没有匹配的论文。';
+        } else {
+          status.textContent = '匹配 ' + hits.length + ' 篇' + (q ? '（关键词：' + q + '）' : '');
+        }
+
+        // Cap rendering for perf when browsing all
+        const MAX = 200;
+        const shown = hits.slice(0, MAX);
+        list.innerHTML = shown.map((it) => {
+          const srcCls = it.src === 'collection' ? 'src-collection' : 'src-daily';
+          const srcIcon = it.src === 'collection' ? '📚' : '📰';
+          const dateLabel = it.src === 'collection' ? '入库' : '推送';
+          const deepBadge = it.depth === 'full_pdf' ? '<span class="sr-deep">★ deep</span>' : '';
+          const scoreBadge = it.src === 'daily' && typeof it.score === 'number'
+            ? '<span class="sr-score">' + it.score + '/10</span>' : '';
+          const tagHtml = (it.tags || []).slice(0, 6).map((t) =>
+            '<span class="tag tag-static">' + escapeHtml(t) + '</span>'
+          ).join('');
+          return (
+            '<li class="sr-item">' +
+              '<div class="sr-head">' +
+                '<span class="sr-src ' + srcCls + '">' + srcIcon + ' ' + escapeHtml(it.srcLabel) + '</span>' +
+                (it.cat ? '<span class="sr-cat">🧭 ' + escapeHtml(it.cat) + '</span>' : '') +
+                (it.date ? '<span class="sr-date">' + dateLabel + ' ' + escapeHtml(it.date) + '</span>' : '') +
+                scoreBadge + deepBadge +
+              '</div>' +
+              '<a class="sr-title" href="' + escapeHtml(it.href) + '">' + highlight(it.title, terms) + '</a>' +
+              (it.title_zh ? '<div class="sr-title-zh">' + highlight(it.title_zh, terms) + '</div>' : '') +
+              (it.one ? '<p class="sr-one">' + highlight(it.one, terms) + '</p>' : '') +
+              (tagHtml ? '<div class="tags sr-tags">' + tagHtml + '</div>' : '') +
+            '</li>'
+          );
+        }).join('');
+
+        if (hits.length > MAX) {
+          const more = document.createElement('li');
+          more.className = 'sr-more';
+          more.textContent = '… 还有 ' + (hits.length - MAX) + ' 篇未显示，请缩小关键词范围';
+          list.appendChild(more);
+        }
+      }
+
+      // Debounce input
+      let t;
+      input.addEventListener('input', (e) => {
+        clearTimeout(t);
+        const v = e.target.value;
+        t = setTimeout(() => { currentQuery = v; render(); }, 80);
+      });
+
+      tabs.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          currentSource = btn.getAttribute('data-source');
+          tabs.forEach((b) => b.setAttribute('aria-selected', b === btn ? 'true' : 'false'));
+          render();
+        });
+      });
+
+      // Allow pre-filling from URL (?q=keyword)
+      try {
+        const u = new URL(location.href);
+        const q0 = u.searchParams.get('q');
+        if (q0) { input.value = q0; currentQuery = q0; }
+        const s0 = u.searchParams.get('src');
+        if (s0 === 'collection' || s0 === 'daily') {
+          currentSource = s0;
+          tabs.forEach((b) => b.setAttribute('aria-selected', b.getAttribute('data-source') === s0 ? 'true' : 'false'));
+        }
+      } catch (_) {}
+
+      input.focus();
+      render();
+    })();
+  </script>
+</BaseLayout>

@@ -76,6 +76,7 @@ const isActive = (p: string) => pathname === `${base}${p}`.replace(/\/$/, '');
         <nav class="nav">
           <a href={`${base}/`} class={isActive('') ? 'active' : ''} data-home-reset>首页</a>
           <a href={`${base}/collection`} class={pathname.startsWith(`${base}/collection`) ? 'active' : ''}>论文沉淀</a>
+          <a href={`${base}/search`} class={isActive('/search') ? 'active' : ''}>检索</a>
           <a href={`${base}/archive`} class={isActive('/archive') ? 'active' : ''}>归档</a>
           <a href={`${base}/categories`} class={isActive('/categories') ? 'active' : ''}>分类</a>
           <a href={`${base}/tags`} class={isActive('/tags') ? 'active' : ''}>标签</a>
