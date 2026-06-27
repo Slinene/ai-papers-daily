@@ -89,19 +89,25 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
       function renderView() {
-        if (current && current.body && current.body.trim()) {
+        const hasNote = !!(current && current.body && current.body.trim());
+        if (hasNote) {
           const day = (current.updated_at || '').slice(0, 10);
           view.innerHTML =
             '<div class="note-comment"><div class="note-body">' + esc(current.body) +
             '</div><div class="note-meta">更新于 ' + esc(day) + '</div></div>';
         } else {
+          // 访客且无备注：view 留空，但整块仍在（保留右上登录入口可达）
           view.innerHTML = isAdmin
             ? '<span class="note-empty">还没有备注，点「编辑」添加。</span>'
-            : '<span class="note-empty">（暂无备注）</span>';
+            : '';
         }
-        // 没内容且非管理员时整块隐藏，避免给访客看空区
+        // 始终保留区块（否则未登录又无备注时连登录按钮都被藏掉）；
+        // 访客 + 无备注时弱化为「只剩一个小登录按钮」，不打扰阅读
         const wrap = $('paper-note');
-        if (wrap) wrap.style.display = (!isAdmin && !(current && current.body && current.body.trim())) ? 'none' : '';
+        const label = wrap ? wrap.querySelector('.note-label') : null;
+        const minimal = !isAdmin && !hasNote;
+        if (wrap) { wrap.style.display = ''; wrap.classList.toggle('note-minimal', minimal); }
+        if (label) label.style.display = minimal ? 'none' : '';
       }
 
       function showEditor(on) {
@@ -173,6 +179,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       background: var(--bg-soft); border: 1px solid var(--border);
       border-left: 3px solid var(--accent); border-radius: 10px;
     }
+    .paper-note.note-minimal {
+      background: transparent; border: none; border-left: none;
+      padding: 0; margin: 0 0 18px;
+    }
+    .paper-note.note-minimal .note-head { justify-content: flex-end; }
     .note-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .note-label { font-weight: 600; color: var(--fg-strong); font-size: 14px; }
     .note-tools { display: inline-flex; gap: 8px; }
