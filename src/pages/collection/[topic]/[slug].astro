@@ -1,6 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, NOTES_ENABLED } from '../../../config/notes';
 
 export async function getStaticPaths() {
   const papers = await getCollection('archive_papers');
@@ -35,6 +36,29 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     <div class="tags" style="margin: 6px 0 22px;">
       {d.tags.map((t: string) => <span class="tag tag-static">{t}</span>)}
     </div>
+
+    {NOTES_ENABLED && (
+      <section id="paper-note" class="paper-note" data-slug={paper.slug}>
+        <div class="note-head">
+          <span class="note-label">📝 我的备注</span>
+          <span class="note-tools">
+            <button id="note-edit-btn" class="note-btn" hidden>✏️ 编辑</button>
+            <button id="note-login-btn" class="note-btn ghost" hidden>🔑 登录</button>
+          </span>
+        </div>
+        <div id="note-view" class="note-view"><span class="note-empty">加载中…</span></div>
+        <div id="note-editor" class="note-editor" hidden>
+          <textarea id="note-text" placeholder="写下对这篇论文的核心关注点 / 备注（支持换行）…"></textarea>
+          <div class="note-actions">
+            <button id="note-save-btn" class="note-btn primary">💾 保存</button>
+            <button id="note-cancel-btn" class="note-btn">取消</button>
+            <button id="note-delete-btn" class="note-btn danger">🗑 删除</button>
+            <span id="note-status" class="note-status"></span>
+          </div>
+        </div>
+      </section>
+    )}
+
     <div class="content">
       <Content />
     </div>
@@ -44,4 +68,138 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       <a href={`${base}/collection`}>← 回到沉淀</a>
     </div>
   </article>
+
+  {NOTES_ENABLED && (
+    <script define:vars={{ SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, slug: paper.slug, topic: d.topic_name, title: d.title }}>
+    (async () => {
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+      const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true },
+      });
+
+      const $ = (id) => document.getElementById(id);
+      const view = $('note-view'), editor = $('note-editor'), ta = $('note-text');
+      const editBtn = $('note-edit-btn'), loginBtn = $('note-login-btn');
+      const saveBtn = $('note-save-btn'), cancelBtn = $('note-cancel-btn'),
+            delBtn = $('note-delete-btn'), status = $('note-status');
+
+      let current = null;     // 当前备注 {body, updated_at}
+      let isAdmin = false;    // 是否已登录为管理员
+
+      const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+      function renderView() {
+        if (current && current.body && current.body.trim()) {
+          const day = (current.updated_at || '').slice(0, 10);
+          view.innerHTML =
+            '<div class="note-comment"><div class="note-body">' + esc(current.body) +
+            '</div><div class="note-meta">更新于 ' + esc(day) + '</div></div>';
+        } else {
+          view.innerHTML = isAdmin
+            ? '<span class="note-empty">还没有备注，点「编辑」添加。</span>'
+            : '<span class="note-empty">（暂无备注）</span>';
+        }
+        // 没内容且非管理员时整块隐藏，避免给访客看空区
+        const wrap = $('paper-note');
+        if (wrap) wrap.style.display = (!isAdmin && !(current && current.body && current.body.trim())) ? 'none' : '';
+      }
+
+      function showEditor(on) {
+        editor.hidden = !on; view.hidden = on;
+        editBtn.hidden = on || !isAdmin;
+        if (on) { ta.value = current ? current.body : ''; ta.focus(); status.textContent = ''; }
+      }
+
+      async function load() {
+        const { data } = await sb.from('paper_notes').select('body,updated_at').eq('slug', slug).maybeSingle();
+        current = data || null;
+        renderView();
+      }
+
+      async function refreshAuth() {
+        const { data } = await sb.auth.getSession();
+        const email = data && data.session && data.session.user && data.session.user.email;
+        isAdmin = !!email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        editBtn.hidden = !isAdmin;
+        loginBtn.hidden = isAdmin;
+        renderView();
+      }
+
+      loginBtn.addEventListener('click', async () => {
+        const email = prompt('管理员邮箱：', ADMIN_EMAIL);
+        if (!email) return;
+        const password = prompt('密码：');
+        if (!password) return;
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) { alert('登录失败：' + error.message); return; }
+        await refreshAuth();
+      });
+
+      editBtn.addEventListener('click', () => showEditor(true));
+      cancelBtn.addEventListener('click', () => showEditor(false));
+
+      saveBtn.addEventListener('click', async () => {
+        status.textContent = '保存中…';
+        const body = ta.value.trim();
+        const { error } = await sb.from('paper_notes')
+          .upsert({ slug, topic, title, body }, { onConflict: 'slug' });
+        if (error) { status.textContent = '保存失败：' + error.message; return; }
+        await load(); showEditor(false);
+      });
+
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('确定删除这条备注？')) return;
+        const { error } = await sb.from('paper_notes').delete().eq('slug', slug);
+        if (error) { status.textContent = '删除失败：' + error.message; return; }
+        current = null; await load(); showEditor(false);
+      });
+
+      // 实时同步：任意端改动 → 本页自动更新
+      sb.channel('paper_notes:' + slug)
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'paper_notes', filter: 'slug=eq.' + slug },
+          (payload) => { current = payload.new && payload.new.body !== undefined ? payload.new : null; renderView(); })
+        .subscribe();
+
+      await refreshAuth();
+      await load();
+    })();
+    </script>
+  )}
+
+  <style>
+    .paper-note {
+      margin: 4px 0 26px; padding: 14px 16px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-left: 3px solid var(--accent); border-radius: 10px;
+    }
+    .note-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .note-label { font-weight: 600; color: var(--fg-strong); font-size: 14px; }
+    .note-tools { display: inline-flex; gap: 8px; }
+    .note-view { margin-top: 8px; }
+    .note-comment .note-body {
+      white-space: pre-wrap; word-break: break-word;
+      font-size: 14px; line-height: 1.6; color: var(--fg);
+    }
+    .note-comment .note-meta { margin-top: 6px; font-size: 12px; color: var(--fg-faint); }
+    .note-empty { font-size: 13px; color: var(--fg-faint); }
+    .note-editor { margin-top: 10px; }
+    .note-editor textarea {
+      width: 100%; box-sizing: border-box; min-height: 96px; resize: vertical;
+      font: inherit; font-size: 14px; line-height: 1.6; padding: 10px 12px;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--fg);
+    }
+    .note-editor textarea:focus { outline: none; border-color: var(--accent); }
+    .note-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .note-status { font-size: 12px; color: var(--fg-muted); }
+    .note-btn {
+      font: inherit; font-size: 13px; cursor: pointer; padding: 5px 12px;
+      border: 1px solid var(--border); border-radius: 7px; background: var(--bg-card); color: var(--fg);
+      transition: border-color .15s, color .15s;
+    }
+    .note-btn:hover { border-color: var(--accent); }
+    .note-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .note-btn.ghost { color: var(--fg-muted); }
+    .note-btn.danger:hover { border-color: #e5616b; color: #e5616b; }
+  </style>
 </BaseLayout>
