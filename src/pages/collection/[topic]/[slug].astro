@@ -38,7 +38,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     </div>
 
     {NOTES_ENABLED && (
-      <section id="paper-note" class="paper-note" data-slug={paper.slug}>
+      <section id="paper-note" class="paper-note" data-slug={d.paperUrl || paper.slug}>
         <div class="note-head">
           <span class="note-label">📝 我的备注</span>
           <span class="note-tools">
@@ -70,7 +70,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   </article>
 
   {NOTES_ENABLED && (
-    <script define:vars={{ SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, slug: paper.slug, topic: d.topic_name, title: d.title }}>
+    <script define:vars={{ SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, slug: (d.paperUrl || paper.slug), topic: d.topic_name, title: d.title }}>
     (async () => {
       const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
       const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
