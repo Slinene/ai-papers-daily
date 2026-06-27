@@ -6,7 +6,7 @@ interface Props { paper: CollectionEntry<'archive_papers'> }
 const { paper } = Astro.props;
 const d = paper.data;
 ---
-<article class="archive-card">
+<article class="archive-card" data-note-key={d.paperUrl || paper.slug}>
   <h3>
     <a href={`${base}/collection/${d.topic}/${paper.slug.split('/').pop()}`}>{d.title}</a>
   </h3>
@@ -17,6 +17,7 @@ const d = paper.data;
     {d.unverified && <><span class="sep">·</span><span class="badge-unverified">未核实</span></>}
   </div>
   {d.idea && <p class="archive-idea">{d.idea}</p>}
+  <div class="card-note" hidden></div>
   <div class="tags">
     {d.tags.map((t: string) => <span class="tag tag-static">{t}</span>)}
   </div>

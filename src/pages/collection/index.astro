@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ArchiveCard from '../../components/ArchiveCard.astro';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, NOTES_ENABLED } from '../../config/notes';
 
 export const prerender = true;
 
@@ -90,4 +91,41 @@ const totalPapers = all.length;
       });
     });
   </script>
+
+  {NOTES_ENABLED && (
+    <script define:vars={{ SUPABASE_URL, SUPABASE_ANON_KEY }}>
+      (async () => {
+        const cards = Array.from(document.querySelectorAll('.archive-card[data-note-key]'));
+        if (!cards.length) return;
+        let sb;
+        try {
+          const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+          sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } catch (e) { console.warn('notes: supabase load failed', e); return; }
+        const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+        async function refresh() {
+          const { data, error } = await sb.from('paper_notes').select('slug,body,updated_at');
+          if (error) { console.warn('notes:', error.message); return; }
+          const map = {};
+          (data || []).forEach(r => { if (r.body && r.body.trim()) map[r.slug] = r; });
+          cards.forEach(card => {
+            const key = card.getAttribute('data-note-key');
+            const box = card.querySelector('.card-note');
+            if (!box) return;
+            const n = map[key];
+            if (n) {
+              const day = (n.updated_at || '').slice(0, 10);
+              box.innerHTML = '<div class="card-note-body">📝 ' + esc(n.body) +
+                '</div><div class="card-note-meta">备注 · ' + esc(day) + '</div>';
+              box.hidden = false;
+            } else { box.hidden = true; box.innerHTML = ''; }
+          });
+        }
+        await refresh();
+        sb.channel('archive_notes_list')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'paper_notes' }, refresh)
+          .subscribe();
+      })();
+    </script>
+  )}
 </BaseLayout>
