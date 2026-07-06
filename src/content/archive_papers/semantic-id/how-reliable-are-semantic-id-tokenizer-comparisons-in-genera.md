@@ -15,13 +15,16 @@ tags:
 - GenerativeRecommendation
 - EvaluationMetrics
 - TokenizerComparison
-unverified: true
+unverified: false
 ---
 
 ## 核心思路
 解决SID基生成推荐中因SID碰撞导致的标准评估指标（Hit@K、NDCG@K）无法忠实反映物品级推荐质量的问题。核心思想是提出碰撞纠正的评估指标（ItemHit@K、ItemNDCG@K），将SID匹配的信用按碰撞组大小进行分数化；并设计一种只修改最后一级码字的零碰撞重分配方法（ZCR），在保持前缀结构的前提下以最小重分配成本消除碰撞，从而使不同标记器在统一的零碰撞条件下公平比较。
 
 ## 整体实现思路
+
+![SID 生成式推荐总览与碰撞概念：(a) 文本→PLM→量化→SID 序列→自回归生成→beam search 出 top-K；(b) 零碰撞下一个 SID 唯一对应一个 item，高碰撞下同一 SID（如两台相似 3D 打印机）映射到一组 item，使 Hit@K 虚高](/ai-papers-daily/figures/how-reliable-are-semantic-id-tokenizer-comparisons-in-genera/fig1.png)
+
 端到端流程：
 ```
 文本元数据 → 预训练文本编码器(Qwen3-Embedding) → 物品嵌入 (4096d)
@@ -43,6 +46,9 @@ SID标记器训练 (RK-Means/RQ-VAE/LETTER/QuaSID) → 物品映射为L级离散
 
 ## 子模块实现（可复现细节）
 ### 碰撞纠正评估 (CCE)
+
+![CCE 计分示意：把 top-K 生成的 SID 序列各自展开成碰撞组拼成扩展 item 排序；目标 SID 命中(SID 级 Hit@5=1)但其碰撞组 g=3、只有 m=2 个组内 item 落在 top-5，故 ItemHit@5=m/g=2/3](/ai-papers-daily/figures/how-reliable-are-semantic-id-tokenizer-comparisons-in-genera/fig2.png)
+
 **输入**：
 - 目标物品的SID序列 `s_target`
 - 波束搜索返回的top-K SID序列列表 `B = [s^(1), s^(2), ..., s^(K)]`
@@ -75,6 +81,9 @@ SID标记器训练 (RK-Means/RQ-VAE/LETTER/QuaSID) → 物品映射为L级离散
 **数据构造**：无需额外训练，直接基于生成器输出的SID序列和原始标记器的SID映射表。
 
 ### 零碰撞重分配 (ZCR)
+
+![ZCR 最小成本重分配案例（Beauty/RK-Means，前缀 [127,244,179]，item i14 与 i1943 都占码 206）：(a) 原生碰撞；(b) 贪婪按局部距离让 i14 保留 206、i1943 改 111，ΔD=20.65；(c) ZCR 在前缀组内全局最小化，改让 i14 到 111、i1943 保 206，ΔD=13.76 更优](/ai-papers-daily/figures/how-reliable-are-semantic-id-tokenizer-comparisons-in-genera/fig3.png)
+
 **输入**：
 - 原生SID分配 `{s_i}_{i∈I}`，其中 `s_i = [s_i^(1), ..., s_i^(L)]`，`L=4`，码本大小 `V=256`
 - 最后一级的残差向量 `r_i^(L-1)` （由标记器量化过程产生，维度 `d`=32）
