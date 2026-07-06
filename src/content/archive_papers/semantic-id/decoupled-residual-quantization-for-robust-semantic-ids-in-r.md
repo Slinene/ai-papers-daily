@@ -15,7 +15,7 @@ tags:
 - Codebook Collapse
 - Recommendation
 - Decoupled Residual Quantization
-unverified: true
+unverified: false
 ---
 
 ## 核心思路
