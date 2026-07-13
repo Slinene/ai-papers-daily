@@ -26,6 +26,6 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install deps
-        run: pip install httpx python-dotenv python-slugify
+        run: pip install -r requirements.txt
       - name: List Feishu chats the bot is in
         run: python scripts/feishu_list_chats.py
