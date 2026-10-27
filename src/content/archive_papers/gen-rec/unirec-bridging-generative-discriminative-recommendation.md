@@ -3,7 +3,7 @@ title: "UniRec: Bridging the Expressive Gap between Generative and Discriminativ
 authors: Ziliang Wang, Gaoyun Lin, Xuesi Wang, Weijie Bian, …, Guanxing Zhang (10 人)
 affiliation: Shopee
 date: 2026-04
-venue: arXiv (投 Conference '26)
+venue: RecSys 2026
 topic: gen-rec
 topic_name: 生成式推荐
 topic_icon: 🎯
