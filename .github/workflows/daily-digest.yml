@@ -112,6 +112,8 @@ jobs:
 
       # ---- build + deploy Pages (self-contained, no cross-workflow trigger) ----
       - name: Build with Astro
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npm run build
 
       - uses: actions/configure-pages@v5

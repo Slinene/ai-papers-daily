@@ -44,6 +44,7 @@ jobs:
         env:
           SITE_URL:  ${{ vars.SITE_URL }}
           BASE_PATH: ${{ vars.BASE_PATH }}
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npm run build
 
       - uses: actions/configure-pages@v5
